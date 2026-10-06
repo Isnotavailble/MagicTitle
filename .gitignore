@@ -1,0 +1,32 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# Precompiled Binaries & Large Builds (>100MB)
+ffmpeg-8.1-essentials_build/
+whisper-bin-x64/
+installers/
+
+# GGML Whisper Models (Binaries)
+models/*.bin
+
+# Temporary audio and media files
+*.wav
+*.tmp
+temp/
+
+# Large Video test media (keep sample .srt, exclude heavy mp4s)
+testContents/*.mp4
+testContents/*_subtitled.*
+testContents/*.srt
+
+# Operating System & IDE Artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
