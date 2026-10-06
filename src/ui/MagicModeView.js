@@ -44,11 +44,11 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   if (step === 'workflow') {
     const items = [
       {
-        label: '🇺🇸 Quick English Subtitles (Speech-to-Text via Whisper)',
+        label: 'Quick English Subtitles',
         value: 'english',
       },
       {
-        label: '🇲🇲 Full Myanmar Subtitles (Whisper STT ➔ AI Translation ➔ Padauk Font)',
+        label: 'Extract English and translate to Burmese subtitles',
         value: 'myanmar',
       },
       {

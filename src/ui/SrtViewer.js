@@ -7,7 +7,7 @@ import path from 'path';
 export function SrtViewer({ srtPath, onBack }) {
   const cues = readSrtFile(srtPath) || [];
   const [page, setPage] = useState(0);
-  const pageSize = 3;
+  const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(cues.length / pageSize));
 
   const h = React.createElement;

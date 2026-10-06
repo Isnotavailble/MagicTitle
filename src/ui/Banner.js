@@ -66,7 +66,6 @@ export function StatusBar({ currentProvider }) {
     h(
       Box,
       null,
-      h(Text, { color: hasModel ? 'green' : 'red', bold: true }, hasModel ? '● ' : '○ '),
       h(Text, { color: 'cyan', bold: true }, 'Whisper: '),
       h(Text, { color: hasModel ? 'greenBright' : 'red', bold: true }, modelName)
     )
