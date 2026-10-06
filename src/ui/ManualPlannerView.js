@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import { scanDirectoryForVideos } from '../core/fileScanner.js';
+import { GlowingIndicator, GlowingItem, VideoPickerItem, FooterBar } from './GlowingIndicator.js';
 
 export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
   const [step, setStep] = useState(preselectedVideo ? 'steps' : 'select_video');
@@ -18,30 +19,37 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
   if (step === 'select_video') {
     const items = videos.map(v => ({
       key: `video_${v.fileName}`,
-      label: `${v.fileName} ${v.hasEnSrt ? '[EN SRT FOUND]' : ''}`,
+      label: v.fileName,
       value: v,
     }));
-    items.push({ key: 'action_back', label: '↩ Back to Main Menu', value: 'back' });
+    items.push({ key: 'action_back', label: 'Back to Main Menu', value: 'back' });
 
     return h(
       Box,
-      { flexDirection: 'column', borderStyle: 'round', borderColor: 'green', padding: 1 },
-      h(Text, { bold: true, color: 'green', marginBottom: 1 }, '🛠️  Manual Planner - Select Target Video:'),
-      h(SelectInput, {
-        items,
-        onSelect: item => {
-          if (item.value === 'back') onBack();
-          else {
-            setVideo(item.value);
-            // If English SRT already exists, default extract & transcribe to false
-            if (item.value.hasEnSrt) {
-              setExtractAudio(false);
-              setTranscribe(false);
+      { flexDirection: 'column' },
+      h(
+        Box,
+        { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
+        h(Text, { bold: true, color: 'cyan', marginBottom: 1 }, 'Manual Planner - Select Target Video:'),
+        h(SelectInput, {
+          items,
+          indicatorComponent: GlowingIndicator,
+          itemComponent: VideoPickerItem,
+          onSelect: item => {
+            if (item.value === 'back') onBack();
+            else {
+              setVideo(item.value);
+              // If English SRT already exists, default extract & transcribe to false
+              if (item.value.hasEnSrt) {
+                setExtractAudio(false);
+                setTranscribe(false);
+              }
+              setStep('steps');
             }
-            setStep('steps');
-          }
-        },
-      })
+          },
+        })
+      ),
+      h(FooterBar, { hints: '[↑/↓] Choose Video  •  [ENTER] Customize Pipeline Steps' })
     );
   }
 
@@ -67,18 +75,18 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
 
     if (renderVideo) {
       items.push({
-        label: `   └─ Output Mode: ${burnMode ? '🔥 Hard Burn (Padauk + HarfBuzz)' : '⚡ Soft Mux (mov_text)'}`,
+        label: `   └─ Output Mode: ${burnMode ? 'Hard Burn (Padauk + HarfBuzz)' : 'Soft Mux (mov_text)'}`,
         value: 'toggle_burn',
       });
     }
 
     items.push({
-      label: '▶  START MANUAL PLAN EXECUTION',
+      label: 'START MANUAL PLAN EXECUTION',
       value: 'execute',
     });
 
     items.push({
-      label: '↩ Back',
+      label: 'Back',
       value: 'back',
     });
 
@@ -116,10 +124,20 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
 
     return h(
       Box,
-      { flexDirection: 'column', borderStyle: 'round', borderColor: 'green', padding: 1 },
-      h(Text, { bold: true, color: 'white', marginBottom: 1 }, `Plan Steps for: ${video.fileName}`),
-      h(Text, { color: 'gray', marginBottom: 1 }, 'Toggle steps on or off, then choose Start:'),
-      h(SelectInput, { items, onSelect: handleSelect })
+      { flexDirection: 'column' },
+      h(
+        Box,
+        { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
+        h(
+          Box,
+          { marginBottom: 1 },
+          h(Text, { bold: true, color: 'white' }, `Plan Steps for: ${video.fileName} `),
+          h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY]' : '[EN: --   ]')
+        ),
+        h(Text, { color: 'gray', marginBottom: 1 }, 'Toggle steps on or off, then choose Start:'),
+        h(SelectInput, { items, indicatorComponent: GlowingIndicator, itemComponent: GlowingItem, onSelect: handleSelect })
+      ),
+      h(FooterBar, { hints: '[↑/↓] Navigate  •  [ENTER] Toggle Checkbox / Run  •  [ESC/Back] Return' })
     );
   }
 

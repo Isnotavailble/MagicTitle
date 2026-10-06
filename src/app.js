@@ -39,10 +39,7 @@ export function App() {
   };
 
   const addStaticLog = (msg) => {
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    const logText = `[${timeStr}] ${msg}`;
-    pushStatic({ id: `log_${++logIdCounter}`, type: 'log', text: logText });
+    pushStatic({ id: `log_${++logIdCounter}`, type: 'log', text: msg });
   };
 
   // Run the pipeline job (GitHub Actions chronological order: Step Header -> Logs -> Complete)
@@ -199,6 +196,11 @@ export function App() {
         duration: `${totalDurationSec}s`,
       });
 
+      // Subtle terminal notification chime / taskbar highlight on finish
+      try {
+        process.stdout.write('\x07');
+      } catch {}
+
       // Transition live region to Next Action selector
       setRunningState({
         isCompleted: true,
@@ -269,12 +271,26 @@ export function App() {
         if (item.type === 'summary') {
           return h(
             Box,
-            { key: item.id, flexDirection: 'column', marginTop: 1, marginBottom: 1 },
-            h(Text, { color: 'green', bold: true }, `🎉 Pipeline Completed Successfully! (Total duration: ${item.duration})`),
+            {
+              key: item.id,
+              flexDirection: 'column',
+              borderStyle: 'round',
+              borderColor: 'greenBright',
+              paddingX: 2,
+              paddingY: 0,
+              marginTop: 1,
+              marginBottom: 1,
+            },
+            h(
+              Box,
+              { justifyContent: 'space-between', marginBottom: 1 },
+              h(Text, { color: 'greenBright', bold: true }, 'Pipeline Completed Successfully!'),
+              h(Text, { color: 'yellowBright', bold: true }, `[Duration: ${item.duration}]`)
+            ),
             item.outputVideo
               ? h(
                   Box,
-                  null,
+                  { marginBottom: 0 },
                   h(Text, { color: 'cyan', bold: true }, 'Video Output:  '),
                   h(Text, { color: 'white' }, item.outputVideo)
                 )
@@ -282,15 +298,15 @@ export function App() {
             item.srtFile
               ? h(
                   Box,
-                  null,
-                  h(Text, { color: 'magenta', bold: true }, 'Subtitle File: '),
+                  { marginBottom: 0 },
+                  h(Text, { color: 'magentaBright', bold: true }, 'Subtitle File: '),
                   h(Text, { color: 'white' }, item.srtFile)
                 )
               : null,
             item.cueCount
               ? h(
                   Box,
-                  null,
+                  { marginBottom: 0 },
                   h(Text, { color: 'cyan', bold: true }, 'Total Cues:    '),
                   h(Text, { color: 'yellowBright', bold: true }, `${item.cueCount} cues`)
                 )
@@ -301,7 +317,7 @@ export function App() {
           return h(
             Box,
             { key: item.id, flexDirection: 'column', marginTop: 1 },
-            h(Text, { color: 'red', bold: true }, '❌ Pipeline Execution Failed:'),
+            h(Text, { color: 'red', bold: true }, 'Pipeline Execution Failed:'),
             h(Text, { color: 'red' }, item.message)
           );
         }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
+import { GlowingIndicator, FooterBar } from './GlowingIndicator.js';
 
 function MenuItem({ isSelected = false, label, hint }) {
   const h = React.createElement;
@@ -28,27 +29,27 @@ export function MainMenu({ onSelect }) {
 
   const items = [
     {
-      label: '⚡ 1. Magic Mode',
+      label: '1. Magic Mode',
       value: 'magic',
       hint: 'Instant automated pipelines (English / Myanmar)',
     },
     {
-      label: '📁 2. File Manager',
+      label: '2. File Manager',
       value: 'fileManager',
       hint: 'Browse videos, subtitle badges & clean SRTs',
     },
     {
-      label: '🛠️  3. Manual Plan',
+      label: '3. Manual Plan',
       value: 'manualPlanner',
       hint: 'Modular step pipeline (Audio, Transcribe, Review, Burn)',
     },
     {
-      label: '🌐 4. Switch AI Provider',
+      label: '4. Switch AI Provider',
       value: 'providerSelect',
-      hint: 'Toggle active LLM (Google Gemini ↔ Groq)',
+      hint: 'Toggle active LLM (Google Gemini <-> Groq)',
     },
     {
-      label: '❌ 5. Exit MagicTitle',
+      label: '5. Exit MagicTitle',
       value: 'exit',
       hint: 'Quit application cleanly',
     },
@@ -56,17 +57,14 @@ export function MainMenu({ onSelect }) {
 
   return h(
     Box,
-    { flexDirection: 'column', borderStyle: 'single', borderColor: 'gray', padding: 1 },
+    { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
     h(Text, { bold: true, color: 'white', marginBottom: 1 }, 'Main Navigation Menu:'),
     h(SelectInput, {
       items,
+      indicatorComponent: GlowingIndicator,
       itemComponent: MenuItem,
       onSelect: item => onSelect(item.value),
     }),
-    h(
-      Box,
-      { marginTop: 1 },
-      h(Text, { color: 'gray' }, 'Use [↑/↓] arrows to navigate, [ENTER] to select')
-    )
+    h(FooterBar, { hints: '[↑/↓] Navigate  •  [ENTER] Select  •  [Ctrl+C] Quit' })
   );
 }

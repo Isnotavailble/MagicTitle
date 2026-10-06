@@ -1,13 +1,14 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
+import { GlowingIndicator, GlowingItem } from './GlowingIndicator.js';
 
 export function ResultCard({ result, onDone }) {
   const h = React.createElement;
 
   const items = [
-    { key: 'action_menu', label: '↩ Return to Main Menu', value: 'menu' },
-    { key: 'action_file_manager', label: '📁 Go to File Manager', value: 'fileManager' },
+    { key: 'action_menu', label: 'Return to Main Menu', value: 'menu' },
+    { key: 'action_file_manager', label: 'Go to File Manager', value: 'fileManager' },
   ];
 
   return h(
@@ -30,7 +31,7 @@ export function ResultCard({ result, onDone }) {
         h(
           Text,
           { bold: true, color: result.success ? 'green' : 'red' },
-          result.success ? '🎉 MagicTitle Pipeline Completed Successfully!' : '❌ Pipeline Failed'
+          result.success ? 'MagicTitle Pipeline Completed Successfully!' : 'Pipeline Failed'
         ),
         result.success
           ? h(
@@ -74,12 +75,12 @@ export function ResultCard({ result, onDone }) {
       Box,
       {
         flexDirection: 'column',
-        borderStyle: 'single',
+        borderStyle: 'round',
         borderColor: 'cyan',
         padding: 1,
       },
       h(Text, { color: 'cyan', bold: true, marginBottom: 1 }, 'Next Action:'),
-      h(SelectInput, { items, onSelect: item => onDone(item.value) })
+      h(SelectInput, { items, indicatorComponent: GlowingIndicator, itemComponent: GlowingItem, onSelect: item => onDone(item.value) })
     )
   );
 }

@@ -23,7 +23,7 @@ export function ProgressCard({ jobState }) {
       h(
         Box,
         { justifyContent: 'space-between', marginBottom: 1 },
-        h(Text, { bold: true, color: 'cyan' }, '⚙️  Active Pipeline Execution'),
+        h(Text, { bold: true, color: 'cyan' }, 'Active Pipeline Execution'),
         h(
           Box,
           null,
