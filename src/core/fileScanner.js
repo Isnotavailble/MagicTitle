@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PROJECT_ROOT } from '../config.js';
+import { generateSafeHash } from './paths.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mkv', '.mov', '.avi', '.webm']);
 
@@ -21,6 +22,7 @@ export function scanDirectoryForVideos(dirPath) {
 
       const fullPath = path.join(targetDir, file);
       const baseName = path.basename(file, ext);
+      const safeId = generateSafeHash(file, 8);
       const enSrtPath = path.join(targetDir, `${baseName}.srt`);
       const mySrtPath = path.join(targetDir, `${baseName}_my.srt`);
       const subtitledVideoPath = path.join(targetDir, `${baseName}_subtitled${ext}`);
@@ -36,6 +38,7 @@ export function scanDirectoryForVideos(dirPath) {
         dir: targetDir,
         baseName,
         ext,
+        safeId,
         hasEnSrt,
         enSrtPath,
         hasMySrt,

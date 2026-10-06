@@ -42,8 +42,12 @@ export function VideoPickerItem({ isSelected = false, label, value }) {
     { flexDirection: 'row' },
     h(
       Box,
-      { width: 30 },
-      h(Text, { color: isSelected ? 'cyanBright' : 'white', bold: isSelected }, v.fileName)
+      { width: 52 },
+      h(
+        Text,
+        { color: isSelected ? 'cyanBright' : 'white', bold: isSelected, wrap: 'truncate-end' },
+        v.fileName
+      )
     ),
     h(
       Text,

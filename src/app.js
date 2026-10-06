@@ -15,7 +15,8 @@ import { PipelineRunner } from './ui/PipelineRunner.js';
 import { extractAudio, burnEnglishSubtitles, burnMyanmarSubtitles, muxSoftSubtitles } from './core/ffmpeg.js';
 import { transcribeAudio } from './core/whisper.js';
 import { translateSrtFile } from './services/translator.js';
-import { readSrtFile } from './core/srt.js';
+import { readSrtFile, writeSrtFile, sanitizeSrtEntries } from './core/srt.js';
+import { generateSafeHash, resolvePaths } from './core/paths.js';
 import { CONFIG } from './config.js';
 
 let logIdCounter = 0;
@@ -44,7 +45,7 @@ export function App() {
 
   // Run the pipeline job (GitHub Actions chronological order: Step Header -> Logs -> Complete)
   const startJob = async (jobConfig) => {
-    const { video, workflow, reuseSrt, burnMode, manualPlan } = jobConfig;
+    const { video, workflow, reuseSrt, burnMode, manualPlan, language = 'en' } = jobConfig;
     const isMyanmar = workflow === 'myanmar';
     const totalStartTime = Date.now();
 
@@ -54,14 +55,21 @@ export function App() {
     const shouldTranslate = manualPlan ? manualPlan.translate : isMyanmar;
     const shouldRender = manualPlan ? manualPlan.renderVideo : true;
 
-    let stepNum = 1;
     const totalStepCount = (shouldExtract ? 1 : 0) + (shouldTranscribe ? 1 : 0) + (shouldTranslate ? 1 : 0) + (shouldRender ? 1 : 0);
+    let stepNum = 1;
 
     const stepDefs = {
-      extract: shouldExtract ? { id: 'extract', title: `[${stepNum++}/${totalStepCount}] Extract 16kHz Audio (FFmpeg bandpass)` } : null,
-      whisper: shouldTranscribe ? { id: 'whisper', title: `[${stepNum++}/${totalStepCount}] Speech-to-Text with Whisper (small-q5_1)` } : null,
+      extract: shouldExtract ? { id: 'extract', title: `[${stepNum++}/${totalStepCount}] Extract 16kHz Audio (FFmpeg bandpass + dynaudnorm)` } : null,
+      whisper: shouldTranscribe ? { id: 'whisper', title: `[${stepNum++}/${totalStepCount}] Speech-to-Text with Whisper (${language.toUpperCase()})` } : null,
       translate: shouldTranslate ? { id: 'translate', title: `[${stepNum++}/${totalStepCount}] Myanmar Translation (${currentProvider.toUpperCase()})` } : null,
-      render: shouldRender ? { id: 'render', title: `[${stepNum++}/${totalStepCount}] ${burnMode ? 'Burn Subtitles (Padauk HarfBuzz)' : 'Mux Soft Subtitles (mov_text)'}` } : null,
+      render: shouldRender ? {
+        id: 'render',
+        title: `[${stepNum++}/${totalStepCount}] ${
+          burnMode
+            ? (isMyanmar ? 'Burn Myanmar Subtitles (Padauk HarfBuzz)' : 'Burn English Subtitles (FFmpeg libass)')
+            : 'Mux Soft Subtitles (mov_text)'
+        }`,
+      } : null,
     };
 
     // 1. Print permanent job header to scroll history
@@ -86,8 +94,14 @@ export function App() {
     const dir = video.dir;
     const baseName = video.baseName;
     const ext = video.ext;
+    const safeId = video.safeId || generateSafeHash(video.fileName, 8);
 
-    const tempWav = path.join(dir, `${baseName}_temp_16k.wav`);
+    // Safe 8-character ASCII intermediate paths for C++ tools (prevents Unicode Windows crashes)
+    const safeTempWav = path.join(dir, `_temp_${safeId}_16k.wav`);
+    const safeTempWhisperPrefix = path.join(dir, `_temp_${safeId}`);
+    const safeTempWhisperSrt = path.join(dir, `_temp_${safeId}.srt`);
+
+    // Target human-readable outputs
     const enSrt = path.join(dir, `${baseName}.srt`);
     const mySrt = path.join(dir, `${baseName}_my.srt`);
     const finalVideo = isMyanmar
@@ -104,10 +118,10 @@ export function App() {
         const sTime = Date.now();
         addStaticLog('Extracting audio with speech bandpass filter (80-7500Hz) & dynaudnorm...');
 
-        await extractAudio(video.fullPath, tempWav);
+        await extractAudio(video.fullPath, safeTempWav);
 
         const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));
-        addStaticLog(`Audio extracted & normalized (16kHz PCM): ${path.basename(tempWav)}`);
+        addStaticLog(`Audio extracted & normalized (16kHz PCM): ${path.basename(safeTempWav)}`);
         // Print Step 1 Completion MARKER
         pushStatic({ id: `step_done_extract`, type: 'step_done', text: `✓ Step completed in ${dSec}s` });
       }
@@ -117,21 +131,30 @@ export function App() {
         // Print Step 2 Header FIRST
         pushStatic({ id: `step_start_whisper`, type: 'step_start', title: stepDefs.whisper.title });
         const sTime = Date.now();
-        addStaticLog(`Running whisper.cpp with ggml-small-q5_1.bin (${CONFIG.whisper.threads} threads)...`);
+        const { modelFile } = resolvePaths(language);
+        const modelName = modelFile ? path.basename(modelFile) : 'ggml-small';
+        addStaticLog(`Running whisper.cpp with ${modelName} [Language: ${language.toUpperCase()}] (${CONFIG.whisper.threads} threads)...`);
 
-        const prefix = path.join(dir, baseName);
-        await transcribeAudio(tempWav, prefix, progress => {
+        await transcribeAudio(safeTempWav, safeTempWhisperPrefix, { language }, progress => {
           if (progress?.cue) {
             addStaticLog(progress.cue);
           }
         });
 
-        if (fs.existsSync(tempWav)) {
-          try { fs.unlinkSync(tempWav); } catch {}
+        // Sanitize and save generated subtitles (clamp hanging durations & remove repetition loops)
+        if (fs.existsSync(safeTempWhisperSrt)) {
+          const rawCues = readSrtFile(safeTempWhisperSrt);
+          const sanitizedCues = sanitizeSrtEntries(rawCues);
+          writeSrtFile(enSrt, sanitizedCues);
+          try { fs.unlinkSync(safeTempWhisperSrt); } catch {}
+        }
+
+        if (fs.existsSync(safeTempWav)) {
+          try { fs.unlinkSync(safeTempWav); } catch {}
         }
 
         const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));
-        addStaticLog(`English subtitles generated: ${path.basename(enSrt)}`);
+        addStaticLog(`Subtitles generated: ${path.basename(enSrt)}`);
         // Print Step 2 Completion MARKER
         pushStatic({ id: `step_done_whisper`, type: 'step_done', text: `✓ Step completed in ${dSec}s` });
       } else if (reuseSrt) {
@@ -190,8 +213,9 @@ export function App() {
       pushStatic({
         id: `job_summary_${Date.now()}`,
         type: 'summary',
-        outputVideo: shouldRender ? finalVideo : null,
-        srtFile: activeSrt,
+        outputVideo: shouldRender ? path.basename(finalVideo) : null,
+        srtFile: path.basename(activeSrt),
+        location: path.relative(process.cwd(), dir) || './testContents',
         cueCount: cues ? cues.length : null,
         duration: `${totalDurationSec}s`,
       });
@@ -208,8 +232,11 @@ export function App() {
       });
     } catch (err) {
       clearInterval(timer);
-      if (fs.existsSync(tempWav)) {
-        try { fs.unlinkSync(tempWav); } catch {}
+      if (fs.existsSync(safeTempWav)) {
+        try { fs.unlinkSync(safeTempWav); } catch {}
+      }
+      if (fs.existsSync(safeTempWhisperSrt)) {
+        try { fs.unlinkSync(safeTempWhisperSrt); } catch {}
       }
       addStaticLog(`[ERROR] ${err.message}`);
       pushStatic({
@@ -291,23 +318,31 @@ export function App() {
               ? h(
                   Box,
                   { marginBottom: 0 },
-                  h(Text, { color: 'cyan', bold: true }, 'Video Output:  '),
-                  h(Text, { color: 'white' }, item.outputVideo)
+                  h(Box, { width: 16 }, h(Text, { color: 'cyan', bold: true }, 'Video Output: ')),
+                  h(Text, { color: 'white', wrap: 'truncate-end' }, item.outputVideo)
                 )
               : null,
             item.srtFile
               ? h(
                   Box,
                   { marginBottom: 0 },
-                  h(Text, { color: 'magentaBright', bold: true }, 'Subtitle File: '),
-                  h(Text, { color: 'white' }, item.srtFile)
+                  h(Box, { width: 16 }, h(Text, { color: 'magentaBright', bold: true }, 'Subtitle File: ')),
+                  h(Text, { color: 'white', wrap: 'truncate-end' }, item.srtFile)
+                )
+              : null,
+            item.location
+              ? h(
+                  Box,
+                  { marginBottom: 0 },
+                  h(Box, { width: 16 }, h(Text, { color: 'gray', bold: true }, 'Location: ')),
+                  h(Text, { color: 'gray' }, item.location)
                 )
               : null,
             item.cueCount
               ? h(
                   Box,
                   { marginBottom: 0 },
-                  h(Text, { color: 'cyan', bold: true }, 'Total Cues:    '),
+                  h(Box, { width: 16 }, h(Text, { color: 'cyan', bold: true }, 'Total Cues: ')),
                   h(Text, { color: 'yellowBright', bold: true }, `${item.cueCount} cues`)
                 )
               : null

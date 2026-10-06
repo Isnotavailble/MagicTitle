@@ -9,14 +9,17 @@ export function ProviderSelector({ currentProvider, onSelect, onBack }) {
 
   const items = [
     {
+      key: 'prov_google',
       label: `Google Gemini (Model: ${CONFIG.gemini.model}) ${currentProvider === 'google' ? '[ACTIVE]' : ''}`,
       value: 'google',
     },
     {
+      key: 'prov_groq',
       label: `Groq Cloud (Model: ${CONFIG.groq.model}) ${currentProvider === 'groq' ? '[ACTIVE]' : ''}`,
       value: 'groq',
     },
     {
+      key: 'prov_back',
       label: 'Back to Main Menu',
       value: 'back',
     },

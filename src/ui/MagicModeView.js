@@ -3,26 +3,45 @@ import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import { scanDirectoryForVideos } from '../core/fileScanner.js';
 import { GlowingIndicator, GlowingItem, VideoPickerItem, FooterBar } from './GlowingIndicator.js';
-import fs from 'fs';
+import { UrlDownloadView } from './UrlDownloadView.js';
 
 export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   const [step, setStep] = useState(preselectedVideo ? 'workflow' : 'select_video');
   const [video, setVideo] = useState(preselectedVideo || null);
   const [workflow, setWorkflow] = useState(null); // 'english' or 'myanmar'
+  const [language, setLanguage] = useState('en'); // 'en', 'auto'
   const [reuseSrt, setReuseSrt] = useState(false);
   const [burnMode, setBurnMode] = useState(false); // false = soft mux, true = hard burn
 
   const h = React.createElement;
   const videos = scanDirectoryForVideos();
 
+  // STEP 0: Download from URL
+  if (step === 'download_url') {
+    return h(UrlDownloadView, {
+      onVideoReady: downloadedVideo => {
+        setVideo(downloadedVideo);
+        setStep('workflow');
+      },
+      onBack: () => setStep('select_video'),
+    });
+  }
+
   // STEP 1: Select Video
   if (step === 'select_video') {
-    const items = videos.map(v => ({
-      key: `video_${v.fileName}`,
-      label: v.fileName,
-      value: v,
-    }));
-    items.push({ key: 'action_back', label: 'Back to Main Menu', value: 'back' });
+    const items = [
+      {
+        key: 'action_download_url',
+        label: 'Download Video from URL',
+        value: 'download_url',
+      },
+      ...videos.map((v, i) => ({
+        key: `video_${v.fileName}_${v.safeId || i}`,
+        label: v.fileName,
+        value: v,
+      })),
+      { key: 'action_back', label: 'Back to Main Menu', value: 'back' },
+    ];
 
     return h(
       Box,
@@ -37,6 +56,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           itemComponent: VideoPickerItem,
           onSelect: item => {
             if (item.value === 'back') onBack();
+            else if (item.value === 'download_url') setStep('download_url');
             else {
               setVideo(item.value);
               setStep('workflow');
@@ -48,18 +68,26 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
     );
   }
 
-  // STEP 2: Choose Workflow (English vs Myanmar)
+  // STEP 2: Choose Workflow & Language
   if (step === 'workflow') {
     const items = [
       {
+        key: 'wf_quick_en',
         label: 'Quick English Subtitles',
-        value: 'english',
+        value: { workflow: 'english', language: 'en' },
       },
       {
-        label: 'Extract English and translate to Burmese subtitles',
-        value: 'myanmar',
+        key: 'wf_myanmar_en',
+        label: 'English to Burmese Subtitles (Speech: English [Default])',
+        value: { workflow: 'myanmar', language: 'en' },
       },
       {
+        key: 'wf_myanmar_dynamic',
+        label: 'Dynamic Language to Burmese Subtitles (Auto-detect speech)',
+        value: { workflow: 'myanmar', language: 'auto' },
+      },
+      {
+        key: 'wf_back',
         label: 'Back',
         value: 'back',
       },
@@ -87,7 +115,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
               if (preselectedVideo) onBack();
               else setStep('select_video');
             } else {
-              setWorkflow(item.value);
+              setWorkflow(item.value.workflow);
+              setLanguage(item.value.language);
               // Check if existing SRT exists to prompt smart reuse
               if (video.hasEnSrt) {
                 setStep('reuse_prompt');
@@ -98,7 +127,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           },
         })
       ),
-      h(FooterBar, { hints: '[↑/↓] Select Language  •  [ENTER] Continue  •  [ESC/Back] Video Select' })
+      h(FooterBar, { hints: '[↑/↓] Select Language & Workflow  •  [ENTER] Continue  •  [ESC/Back] Video Select' })
     );
   }
 
@@ -106,14 +135,17 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   if (step === 'reuse_prompt') {
     const items = [
       {
+        key: 'reuse_opt_yes',
         label: `Yes, reuse existing SRT (${video.baseName}.srt) [Saves 5-10 mins!]`,
         value: true,
       },
       {
+        key: 'reuse_opt_no',
         label: `No, re-extract and transcribe from scratch with Whisper`,
         value: false,
       },
       {
+        key: 'reuse_opt_back',
         label: 'Back',
         value: 'back',
       },
@@ -152,14 +184,17 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   if (step === 'burn_mode') {
     const items = [
       {
+        key: 'burn_opt_soft',
         label: 'Soft Mux (Fast, embeds selectable subtitle track via mov_text)',
         value: false,
       },
       {
+        key: 'burn_opt_hard',
         label: 'Hard Burn (Renders permanent subtitles into video pixels with Padauk & HarfBuzz)',
         value: true,
       },
       {
+        key: 'burn_opt_back',
         label: 'Back',
         value: 'back',
       },
@@ -184,6 +219,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
               onStartJob({
                 video,
                 workflow,
+                language,
                 reuseSrt,
                 burnMode: item.value,
                 modeName: 'magic',

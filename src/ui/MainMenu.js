@@ -29,26 +29,31 @@ export function MainMenu({ onSelect }) {
 
   const items = [
     {
+      key: 'menu_magic',
       label: '1. Magic Mode',
       value: 'magic',
       hint: 'Instant automated pipelines (English / Myanmar)',
     },
     {
+      key: 'menu_file_manager',
       label: '2. File Manager',
       value: 'fileManager',
       hint: 'Browse videos, subtitle badges & clean SRTs',
     },
     {
+      key: 'menu_manual_planner',
       label: '3. Manual Plan',
       value: 'manualPlanner',
       hint: 'Modular step pipeline (Audio, Transcribe, Review, Burn)',
     },
     {
+      key: 'menu_provider_select',
       label: '4. Switch AI Provider',
       value: 'providerSelect',
       hint: 'Toggle active LLM (Google Gemini <-> Groq)',
     },
     {
+      key: 'menu_exit',
       label: '5. Exit MagicTitle',
       value: 'exit',
       hint: 'Quit application cleanly',

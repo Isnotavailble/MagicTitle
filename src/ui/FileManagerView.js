@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { scanDirectoryForVideos, deleteSubtitleFiles } from '../core/fileScanner.js';
 import { GlowingIndicator, GlowingItem, FooterBar } from './GlowingIndicator.js';
+import { UrlDownloadView } from './UrlDownloadView.js';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes <= 0) return '0 MB';
@@ -14,7 +15,7 @@ function formatFileSize(bytes) {
 function VideoRowItem({ isSelected = false, label, value }) {
   const h = React.createElement;
 
-  // Handle action buttons (Refresh / Back)
+  // Handle action buttons (Refresh / Back / Download)
   if (!value || typeof value !== 'object' || !value.fileName) {
     return h(
       Box,
@@ -33,8 +34,8 @@ function VideoRowItem({ isSelected = false, label, value }) {
     { flexDirection: 'row' },
     h(
       Box,
-      { width: 28 },
-      h(Text, { color: isSelected ? 'cyanBright' : 'white', bold: isSelected }, v.fileName)
+      { width: 44 },
+      h(Text, { color: isSelected ? 'cyanBright' : 'white', bold: isSelected, wrap: 'truncate-end' }, v.fileName)
     ),
     h(
       Box,
@@ -58,24 +59,44 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
   const [videos, setVideos] = useState(() => scanDirectoryForVideos());
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [highlightedVideo, setHighlightedVideo] = useState(() => (videos.length > 0 ? videos[0] : null));
+  const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
   const [message, setMessage] = useState('');
 
   const h = React.createElement;
 
-  const refreshList = () => {
+  const refreshList = (newSelected = null) => {
     const list = scanDirectoryForVideos();
     setVideos(list);
-    if (list.length > 0) setHighlightedVideo(list[0]);
+    if (newSelected) {
+      setHighlightedVideo(newSelected);
+      setSelectedVideo(newSelected);
+    } else if (list.length > 0) {
+      setHighlightedVideo(list[0]);
+    }
   };
+
+  // If in URL download mode
+  if (isDownloadingUrl) {
+    return h(UrlDownloadView, {
+      onVideoReady: downloadedVideo => {
+        setIsDownloadingUrl(false);
+        setMessage(`Successfully downloaded: ${downloadedVideo.fileName}`);
+        refreshList(downloadedVideo);
+      },
+      onBack: () => setIsDownloadingUrl(false),
+    });
+  }
 
   // If a video has been selected from the list, show the action submenu
   if (selectedVideo) {
     const actionItems = [
       {
+        key: 'act_magic',
         label: `Process with Magic Mode`,
         value: 'magic',
       },
       {
+        key: 'act_manual',
         label: `Process with Manual Planner`,
         value: 'manual',
       },
@@ -83,6 +104,7 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
 
     if (selectedVideo.hasEnSrt) {
       actionItems.push({
+        key: 'act_view_en',
         label: `Preview English Subtitles (${selectedVideo.baseName}.srt)`,
         value: 'view_en',
       });
@@ -90,6 +112,7 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
 
     if (selectedVideo.hasMySrt) {
       actionItems.push({
+        key: 'act_view_my',
         label: `Preview Myanmar Subtitles (${selectedVideo.baseName}_my.srt)`,
         value: 'view_my',
       });
@@ -97,12 +120,14 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
 
     if (selectedVideo.hasEnSrt || selectedVideo.hasMySrt) {
       actionItems.push({
+        key: 'act_delete',
         label: `Delete Subtitle Files (.srt / _my.srt)`,
         value: 'delete',
       });
     }
 
     actionItems.push({
+      key: 'act_back_list',
       label: `Back to Video List`,
       value: 'back_list',
     });
@@ -148,31 +173,36 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
   }
 
   // Primary video list
-  const listItems = videos.map(v => {
-    return {
-      key: `video_${v.fileName}`,
+  const listItems = [
+    {
+      key: 'action_download_url',
+      label: 'Download Video from URL',
+      value: 'download_url',
+    },
+    ...videos.map((v, i) => ({
+      key: `video_${v.fileName}_${v.safeId || i}`,
       label: v.fileName,
       value: v,
-    };
-  });
-
-  listItems.push({
-    key: 'action_refresh',
-    label: 'Refresh File List',
-    value: 'refresh',
-  });
-
-  listItems.push({
-    key: 'action_back',
-    label: 'Back to Main Menu',
-    value: 'back',
-  });
+    })),
+    {
+      key: 'action_refresh',
+      label: 'Refresh File List',
+      value: 'refresh',
+    },
+    {
+      key: 'action_back',
+      label: 'Back to Main Menu',
+      value: 'back',
+    },
+  ];
 
   const handleVideoSelect = item => {
     if (item.value === 'back') {
       onBack();
     } else if (item.value === 'refresh') {
       refreshList();
+    } else if (item.value === 'download_url') {
+      setIsDownloadingUrl(true);
     } else {
       setSelectedVideo(item.value);
     }
@@ -212,7 +242,7 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
         { flexDirection: 'row', marginBottom: 1 },
         // Offset 2 characters for indicator column
         h(Box, { width: 2 }, h(Text, null, ' ')),
-        h(Box, { width: 28 }, h(Text, { color: 'gray', bold: true }, 'Video File')),
+        h(Box, { width: 44 }, h(Text, { color: 'gray', bold: true }, 'Video File')),
         h(Box, { width: 16 }, h(Text, { color: 'greenBright', bold: true }, 'English')),
         h(Box, { width: 16 }, h(Text, { color: 'magentaBright', bold: true }, 'Myanmar')),
         h(Box, { width: 14 }, h(Text, { color: 'cyanBright', bold: true }, 'Output Video'))
@@ -237,6 +267,6 @@ export function FileManagerView({ onSelectVideoForWorkflow, onViewSrt, onBack })
           )
         : null
     ),
-    h(FooterBar, { hints: '[↑/↓] Browse Files  •  [ENTER] Inspect Video  •  [Ctrl+C] Quit' })
+    h(FooterBar, { hints: '[↑/↓] Browse Files  •  [ENTER] Inspect Video / Download  •  [Ctrl+C] Quit' })
   );
 }

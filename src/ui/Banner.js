@@ -18,7 +18,7 @@ const ASCII_LOGO = `
 
 export function printStartupBanner() {
   process.stdout.write(geminiGradient(ASCII_LOGO) + '\n');
-  process.stdout.write(' \x1b[36m\x1b[1m✦ Subtitle Generator and translate English to Burmese ✦\x1b[0m  \x1b[90m[v1.0.0]\x1b[0m\n\n');
+  process.stdout.write(' \x1b[36m\x1b[1m✦ Subtitle Generator and translate English to Burmese ✦\x1b[0m  \x1b\x1b[0m\n\n');
 }
 
 export function Banner() {
@@ -32,7 +32,7 @@ export function Banner() {
       Box,
       { marginTop: -1, marginBottom: 0 },
       h(Text, { bold: true, color: 'cyan' }, '✦ AI Film Subtitling & Myanmar Unicode Engine ✦  '),
-      h(Text, { color: 'gray' }, '[v1.0.0]')
+      h(Text, { color: 'gray' }, 'make with ❤️')
     )
   );
 }

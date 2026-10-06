@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { resolvePaths } from './paths.js';
+import { resolvePaths, generateSafeHash } from './paths.js';
 import { writePadaukAssFile } from './fontPatcher.js';
 import { readSrtFile } from './srt.js';
 
@@ -51,8 +51,8 @@ export function extractAudio(videoPath, outWavPath, onProgress) {
 export function burnMyanmarSubtitles(videoPath, srtPath, outVideoPath, onProgress) {
   const { ffmpegBin, fontsDir } = resolvePaths();
   const dir = path.dirname(videoPath);
-  const baseName = path.basename(videoPath, path.extname(videoPath));
-  const tempAssPath = path.join(dir, `${baseName}_temp_my.ass`);
+  const safeId = generateSafeHash(videoPath, 8);
+  const tempAssPath = path.join(dir, `_temp_${safeId}_my.ass`);
 
   // Convert SRT cues to ASS with Padauk font header
   const cues = readSrtFile(srtPath);
@@ -107,7 +107,13 @@ export function burnMyanmarSubtitles(videoPath, srtPath, outVideoPath, onProgres
 
 export function burnEnglishSubtitles(videoPath, srtPath, outVideoPath, onProgress) {
   const { ffmpegBin } = resolvePaths();
-  const escapedSrt = escapeFilterPath(srtPath);
+  const dir = path.dirname(videoPath);
+  const safeId = generateSafeHash(videoPath, 8);
+  const tempSrtPath = path.join(dir, `_temp_${safeId}_en.srt`);
+
+  // Copy to safe ASCII path to prevent filtergraph escaping bugs on Unicode paths
+  fs.copyFileSync(srtPath, tempSrtPath);
+  const escapedSrt = escapeFilterPath(tempSrtPath);
 
   return new Promise((resolve, reject) => {
     const args = [
@@ -131,6 +137,10 @@ export function burnEnglishSubtitles(videoPath, srtPath, outVideoPath, onProgres
     });
 
     child.on('close', code => {
+      if (fs.existsSync(tempSrtPath)) {
+        try { fs.unlinkSync(tempSrtPath); } catch {}
+      }
+
       if (code === 0 && fs.existsSync(outVideoPath)) {
         resolve(outVideoPath);
       } else {
@@ -138,7 +148,12 @@ export function burnEnglishSubtitles(videoPath, srtPath, outVideoPath, onProgres
       }
     });
 
-    child.on('error', err => reject(err));
+    child.on('error', err => {
+      if (fs.existsSync(tempSrtPath)) {
+        try { fs.unlinkSync(tempSrtPath); } catch {}
+      }
+      reject(err);
+    });
   });
 }
 
