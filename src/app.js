@@ -11,12 +11,14 @@ import { MagicModeView } from './ui/MagicModeView.js';
 import { ManualPlannerView } from './ui/ManualPlannerView.js';
 import { SrtViewer } from './ui/SrtViewer.js';
 import { PipelineRunner } from './ui/PipelineRunner.js';
+import { ModelManagerView } from './ui/ModelManagerView.js';
 
 import { extractAudio, burnEnglishSubtitles, burnMyanmarSubtitles, muxSoftSubtitles } from './core/ffmpeg.js';
 import { transcribeAudio } from './core/whisper.js';
 import { translateSrtFile } from './services/translator.js';
 import { readSrtFile, writeSrtFile, sanitizeSrtEntries } from './core/srt.js';
 import { generateSafeHash, resolvePaths } from './core/paths.js';
+import { isModelActive, getActiveModel } from './core/modelManager.js';
 import { CONFIG } from './config.js';
 
 let logIdCounter = 0;
@@ -55,12 +57,25 @@ export function App() {
     const shouldTranslate = manualPlan ? manualPlan.translate : isMyanmar;
     const shouldRender = manualPlan ? manualPlan.renderVideo : true;
 
+    // Guard: ensure Whisper model is active in state if transcription is required
+    if (shouldTranscribe && !isModelActive()) {
+      setScreen('modelManagerRequired');
+      return;
+    }
+
+    const activeModel = getActiveModel();
+    const modelName = activeModel?.displayName || 'Whisper';
+    const isLargeTurbo = Boolean(activeModel?.id?.includes('turbo') || activeModel?.id?.includes('large'));
+
     const totalStepCount = (shouldExtract ? 1 : 0) + (shouldTranscribe ? 1 : 0) + (shouldTranslate ? 1 : 0) + (shouldRender ? 1 : 0);
     let stepNum = 1;
 
     const stepDefs = {
-      extract: shouldExtract ? { id: 'extract', title: `[${stepNum++}/${totalStepCount}] Extract 16kHz Audio (FFmpeg bandpass + dynaudnorm)` } : null,
-      whisper: shouldTranscribe ? { id: 'whisper', title: `[${stepNum++}/${totalStepCount}] Speech-to-Text with Whisper (${language.toUpperCase()})` } : null,
+      extract: shouldExtract ? {
+        id: 'extract',
+        title: `[${stepNum++}/${totalStepCount}] Extract 16kHz Audio (FFmpeg bandpass${isLargeTurbo ? ' 80-7500Hz' : ' + dynaudnorm'})`,
+      } : null,
+      whisper: shouldTranscribe ? { id: 'whisper', title: `[${stepNum++}/${totalStepCount}] Speech-to-Text with Whisper (${modelName})` } : null,
       translate: shouldTranslate ? { id: 'translate', title: `[${stepNum++}/${totalStepCount}] Myanmar Translation (${currentProvider.toUpperCase()})` } : null,
       render: shouldRender ? {
         id: 'render',
@@ -116,9 +131,9 @@ export function App() {
         // Print Step 1 Header FIRST
         pushStatic({ id: `step_start_extract`, type: 'step_start', title: stepDefs.extract.title });
         const sTime = Date.now();
-        addStaticLog('Extracting audio with speech bandpass filter (80-7500Hz) & dynaudnorm...');
+        addStaticLog(`Extracting audio with speech bandpass filter (80-7500Hz)${isLargeTurbo ? '' : ' & dynaudnorm'}...`);
 
-        await extractAudio(video.fullPath, safeTempWav);
+        await extractAudio(video.fullPath, safeTempWav, { language, isLargeTurbo });
 
         const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));
         addStaticLog(`Audio extracted & normalized (16kHz PCM): ${path.basename(safeTempWav)}`);
@@ -131,9 +146,9 @@ export function App() {
         // Print Step 2 Header FIRST
         pushStatic({ id: `step_start_whisper`, type: 'step_start', title: stepDefs.whisper.title });
         const sTime = Date.now();
-        const { modelFile } = resolvePaths(language);
-        const modelName = modelFile ? path.basename(modelFile) : 'ggml-small';
-        addStaticLog(`Running whisper.cpp with ${modelName} [Language: ${language.toUpperCase()}] (${CONFIG.whisper.threads} threads)...`);
+        const activeModel = getActiveModel();
+        const modelLabel = activeModel?.displayName || 'Active Whisper Model';
+        addStaticLog(`Transcribing audio with Whisper [${modelLabel}] [Language: ${language.toUpperCase()}]...`);
 
         await transcribeAudio(safeTempWav, safeTempWhisperPrefix, { language }, progress => {
           if (progress?.cue) {
@@ -368,8 +383,11 @@ export function App() {
           h(StatusBar, { currentProvider }),
           h(MainMenu, {
             onSelect: opt => {
-              if (opt === 'exit') process.exit(0);
-              else if (opt === 'magic') {
+              if (opt === 'exit') {
+                process.exit(0);
+              } else if (opt === 'modelManager') {
+                setScreen('modelManager');
+              } else if (opt === 'magic') {
                 setSelectedVideoEntry(null);
                 setScreen('magic');
               } else if (opt === 'manualPlanner') {
@@ -383,6 +401,13 @@ export function App() {
             },
           })
         )
+      : null,
+
+    screen === 'modelManager' || screen === 'modelManagerRequired'
+      ? h(ModelManagerView, {
+          requiredWarning: screen === 'modelManagerRequired',
+          onBack: () => setScreen('menu'),
+        })
       : null,
 
     screen === 'providerSelect'
@@ -439,7 +464,9 @@ export function App() {
           isCompleted: runningState.isCompleted,
           isFailed: runningState.isFailed,
           onDone: dest => {
-            if (dest === 'exit') process.exit(0);
+            if (dest === 'exit') {
+              process.exit(0);
+            }
             setRunningState(null);
             setSelectedVideoEntry(null);
             setScreen(dest === 'fileManager' ? 'fileManager' : 'menu');

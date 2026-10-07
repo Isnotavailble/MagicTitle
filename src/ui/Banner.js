@@ -4,6 +4,7 @@ import path from 'path';
 import gradient from 'gradient-string';
 import { resolvePaths } from '../core/paths.js';
 import { CONFIG } from '../config.js';
+import { getActiveModel, isModelActive } from '../core/modelManager.js';
 
 const geminiGradient = gradient(['#4FACFE', '#00F2FE', '#6B5B95', '#B06AB3']);
 
@@ -38,9 +39,9 @@ export function Banner() {
 }
 
 export function StatusBar({ currentProvider }) {
-  const { modelFile, hasModel } = resolvePaths();
   const provider = currentProvider || CONFIG.defaultService;
-  const modelName = modelFile ? path.basename(modelFile, '.bin').replace(/^ggml-/, '') : 'Not Found';
+  const activeModel = getActiveModel();
+  const isActive = isModelActive();
 
   const h = React.createElement;
 
@@ -67,7 +68,10 @@ export function StatusBar({ currentProvider }) {
       Box,
       null,
       h(Text, { color: 'cyan', bold: true }, 'Whisper: '),
-      h(Text, { color: hasModel ? 'greenBright' : 'red', bold: true }, modelName)
+      isActive && activeModel
+        ? h(Text, { color: 'greenBright', bold: true }, `● ${activeModel.displayName} [Active]`)
+        : h(Text, { color: 'yellow', bold: true }, '○ None (Select Model in Menu)')
     )
   );
 }
+

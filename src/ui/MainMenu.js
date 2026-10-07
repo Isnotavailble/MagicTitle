@@ -47,16 +47,22 @@ export function MainMenu({ onSelect }) {
       hint: 'Modular step pipeline (Audio, Transcribe, Review, Burn)',
     },
     {
+      key: 'menu_model_manager',
+      label: '4. Manage Whisper Models',
+      value: 'modelManager',
+      hint: 'Load into RAM, switch model or unload memory',
+    },
+    {
       key: 'menu_provider_select',
-      label: '4. Switch AI Provider',
+      label: '5. Switch AI Provider',
       value: 'providerSelect',
       hint: 'Toggle active LLM (Google Gemini <-> Groq)',
     },
     {
       key: 'menu_exit',
-      label: '5. Exit MagicTitle',
+      label: '6. Exit MagicTitle',
       value: 'exit',
-      hint: 'Quit application cleanly',
+      hint: 'Quit application cleanly & unmount memory',
     },
   ];
 

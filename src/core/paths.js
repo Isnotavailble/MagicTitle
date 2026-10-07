@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { PROJECT_ROOT } from '../config.js';
+import { PROJECT_ROOT, MODEL_PROFILES } from '../config.js';
 
 /**
  * Generates an 8-character safe ASCII hexadecimal hash from any input string.
@@ -15,29 +15,15 @@ export function generateSafeHash(input, length = 8) {
 }
 
 export function resolveModelFile(language = 'en') {
-  const isEnglish = language === 'en';
-  if (isEnglish) {
-    // English-specific priority: Turbo -> Small.en -> Small-q5_1 -> Small -> Base
-    const englishCandidates = [
-      path.join(PROJECT_ROOT, 'models', 'ggml-large-v3-turbo-q5_0.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-large-v3-turbo.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-small.en.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-small-q5_1.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-small.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-base.bin'),
-    ];
-    return englishCandidates.find(p => fs.existsSync(p)) || null;
-  } else {
-    // Dynamic / Multilingual priority: Turbo -> Small-q5_1 -> Small.bin -> Base (skips .en because .en cannot decode foreign speech)
-    const multiCandidates = [
-      path.join(PROJECT_ROOT, 'models', 'ggml-large-v3-turbo-q5_0.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-large-v3-turbo.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-small-q5_1.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-small.bin'),
-      path.join(PROJECT_ROOT, 'models', 'ggml-base.bin'),
-    ];
-    return multiCandidates.find(p => fs.existsSync(p)) || null;
+  const modelsDir = path.join(PROJECT_ROOT, 'models');
+  // Check available models from MODEL_PROFILES
+  for (const profile of Object.values(MODEL_PROFILES)) {
+    const p = path.join(modelsDir, profile.fileName);
+    if (fs.existsSync(p)) {
+      return p;
+    }
   }
+  return null;
 }
 
 export function resolvePaths(language = 'en') {

@@ -4,20 +4,41 @@ import fs from 'fs';
 import { resolvePaths, generateSafeHash } from './paths.js';
 import { writePadaukAssFile } from './fontPatcher.js';
 import { readSrtFile } from './srt.js';
+import { getActiveModel } from './modelManager.js';
 
 function escapeFilterPath(p) {
   // FFmpeg filtergraph escaping: replace \ with / and escape : with \:
   return p.replace(/\\/g, '/').replace(/:/g, '\\:');
 }
 
-export function extractAudio(videoPath, outWavPath, onProgress) {
-  const { ffmpegBin } = resolvePaths();
+export function extractAudio(videoPath, outWavPath, optionsOrProgress, onProgressCallback) {
+  let options = {};
+  let onProgress = onProgressCallback;
+
+  if (typeof optionsOrProgress === 'function') {
+    onProgress = optionsOrProgress;
+  } else if (optionsOrProgress && typeof optionsOrProgress === 'object') {
+    options = optionsOrProgress;
+  }
+
+  const { language = 'en', isLargeTurbo: explicitLargeTurbo, audioFilter } = options;
+  const { ffmpegBin, modelFile } = resolvePaths(language);
+
+  const isLargeTurbo = explicitLargeTurbo !== undefined
+    ? explicitLargeTurbo
+    : Boolean(modelFile && (modelFile.toLowerCase().includes('large') || modelFile.toLowerCase().includes('turbo')));
+
+  const activeModel = getActiveModel();
+  const filterString = audioFilter || (activeModel?.audioFilter || (isLargeTurbo
+    ? 'highpass=f=80,lowpass=f=7500'
+    : 'highpass=f=80,lowpass=f=7500,dynaudnorm'));
+
   return new Promise((resolve, reject) => {
     const args = [
       '-y',
       '-i', videoPath,
       '-vn',
-      '-af', 'highpass=f=80,lowpass=f=7500,dynaudnorm',
+      '-af', filterString,
       '-ar', '16000',
       '-ac', '1',
       '-c:a', 'pcm_s16le',

@@ -2,10 +2,10 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { resolvePaths } from './paths.js';
-import { CONFIG } from '../config.js';
+import { isModelActive, getActiveModel } from './modelManager.js';
 
 /**
- * Transcribes audio file using whisper-cli.
+ * Transcribes audio file directly using whisper-cli.exe with active model parameters.
  * @param {string} wavPath - Path to 16kHz WAV file
  * @param {string} outputPrefix - Output prefix for generated .srt
  * @param {object|function} [optionsOrProgress] - Options object or onProgress callback
@@ -23,28 +23,47 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
     options = optionsOrProgress;
   }
 
-  const { language = CONFIG.whisper?.language || 'en' } = options;
-  const { whisperBin, modelFile } = resolvePaths(language);
+  const { language = 'en' } = options;
+
+  if (!isModelActive()) {
+    return Promise.reject(new Error('No Whisper model is currently active. Please select an active model from the Model Manager first.'));
+  }
+
+  const activeModel = getActiveModel();
+  const { whisperBin, vadModelFile } = resolvePaths(language);
 
   if (!whisperBin || !fs.existsSync(whisperBin)) {
-    return Promise.reject(new Error('Whisper executable not found in whisper-bin-x64 directory.'));
+    return Promise.reject(new Error('whisper-cli.exe binary was not found in whisper-bin-x64 directory.'));
   }
-  if (!modelFile || !fs.existsSync(modelFile)) {
-    return Promise.reject(new Error(`Whisper model not found at ${modelFile}`));
+
+  if (!activeModel || !fs.existsSync(activeModel.fullPath)) {
+    return Promise.reject(new Error(`Active model file not found at ${activeModel?.fullPath}`));
   }
 
   const expectedSrtPath = `${outputPrefix}.srt`;
 
   return new Promise((resolve, reject) => {
     const args = [
-      '-m', modelFile,
+      '-m', activeModel.fullPath,
       '-f', wavPath,
-      '-t', String(CONFIG.whisper.threads || 6),
-      '-bs', String(CONFIG.whisper.beamSize || 2),
-      '-mc', String(CONFIG.whisper.maxContext || 128),
+      '-t', String(activeModel.threads ?? 6),
+      '-bs', String(activeModel.beamSize ?? 1),
+      ...(activeModel.bestOf !== undefined ? ['-bo', String(activeModel.bestOf)] : []),
+      '-mc', String(activeModel.maxContext ?? 128),
       '-sns',
-      '-nth', String(CONFIG.whisper.noSpeechThreshold || 0.7),
-      '-nf',
+      '-nth', String(activeModel.noSpeechThreshold ?? 0.70),
+      ...(activeModel.splitOnWord ? ['-sow'] : []),
+      ...(activeModel.maxLen ? ['-ml', String(activeModel.maxLen)] : []),
+      ...(activeModel.wordTimestamps !== undefined ? ['-wt', String(activeModel.wordTimestamps)] : []),
+      ...(activeModel.flashAttention ? ['-fa'] : ['-nfa']),
+      ...(activeModel.noFallback ? ['-nf'] : []),
+      ...(activeModel.vad && vadModelFile && fs.existsSync(vadModelFile) ? [
+        '--vad',
+        '-vm', vadModelFile,
+        ...(activeModel.vadThreshold !== undefined ? ['-vt', String(activeModel.vadThreshold)] : []),
+        ...(activeModel.vadSpeechPadMs !== undefined ? ['-vp', String(activeModel.vadSpeechPadMs)] : []),
+        ...(activeModel.vadMinSpeechDurationMs !== undefined ? ['-vspd', String(activeModel.vadMinSpeechDurationMs)] : []),
+      ] : []),
       '-l', language,
       '-osrt',
       '-of', outputPrefix,
@@ -84,7 +103,6 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
       } else if (fs.existsSync(expectedSrtPath)) {
         resolve(expectedSrtPath);
       } else {
-        // Extract real error message from outputBuffer, ignoring the CLI usage manual
         const errorLines = outputBuffer
           .split(/\r?\n/)
           .map(l => l.trim())
@@ -99,6 +117,6 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
       }
     });
 
-    child.on('error', err => reject(err));
+    child.on('error', err => reject(new Error(`Failed to spawn whisper-cli.exe: ${err.message}`)));
   });
 }
