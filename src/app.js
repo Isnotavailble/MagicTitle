@@ -129,7 +129,7 @@ export function App() {
       ? path.join(dir, `${baseName}_my_subtitled${ext}`)
       : path.join(dir, `${baseName}_subtitled${ext}`);
 
-    let activeSrt = enSrt;
+    let activeSrt = isMyanmar ? (fs.existsSync(mySrt) ? mySrt : enSrt) : enSrt;
 
     try {
       // Step 0: Metadata Probe with tiny.en
@@ -240,6 +240,9 @@ export function App() {
         // Print Step 3 Completion MARKER
         pushStatic({ id: `step_done_translate`, type: 'step_done', text: `✓ Step completed in ${dSec}s` });
         activeSrt = mySrt;
+      } else if (isMyanmar && fs.existsSync(mySrt)) {
+        activeSrt = mySrt;
+        addStaticLog(`Using existing Myanmar subtitle: ${path.basename(mySrt)} (Translation skipped)`);
       }
 
       // Step 4: Video Rendering
@@ -250,15 +253,17 @@ export function App() {
 
         if (burnMode) {
           if (isMyanmar) {
-            addStaticLog('Converting to ASS and burning with Padauk font & HarfBuzz complex shaping...');
-            await burnMyanmarSubtitles(video.fullPath, activeSrt, finalVideo);
+            const targetSrt = fs.existsSync(mySrt) ? mySrt : activeSrt;
+            addStaticLog(`Converting to ASS and burning ${path.basename(targetSrt)} with Padauk font & HarfBuzz complex shaping...`);
+            await burnMyanmarSubtitles(video.fullPath, targetSrt, finalVideo);
           } else {
             addStaticLog('Burning English subtitles with FFmpeg libass...');
             await burnEnglishSubtitles(video.fullPath, activeSrt, finalVideo);
           }
         } else {
-          addStaticLog('Muxing soft subtitle track (mov_text)...');
-          await muxSoftSubtitles(video.fullPath, activeSrt, finalVideo);
+          const targetSrt = isMyanmar && fs.existsSync(mySrt) ? mySrt : activeSrt;
+          addStaticLog(`Muxing soft subtitle track (${path.basename(targetSrt)})...`);
+          await muxSoftSubtitles(video.fullPath, targetSrt, finalVideo);
         }
 
         const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));

@@ -11,6 +11,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   const [workflow, setWorkflow] = useState(null); // 'english' or 'myanmar'
   const [language, setLanguage] = useState('en'); // 'en', 'auto'
   const [reuseSrt, setReuseSrt] = useState(false);
+  const [reuseMySrt, setReuseMySrt] = useState(false);
   const [useProbe, setUseProbe] = useState(true);
   const [burnMode, setBurnMode] = useState(false); // false = soft mux, true = hard burn
 
@@ -104,7 +105,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           Box,
           { marginBottom: 1 },
           h(Text, { bold: true, color: 'white' }, `Selected Video: ${video.fileName} `),
-          h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY]' : '[EN: --   ]')
+          h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY] ' : '[EN: --   ] '),
+          h(Text, { color: video.hasMySrt ? 'magentaBright' : 'gray', bold: video.hasMySrt }, video.hasMySrt ? '[MY: READY]' : '[MY: --   ]')
         ),
         h(Text, { color: 'cyan', marginBottom: 1 }, 'Choose Subtitle Workflow:'),
         h(SelectInput, {
@@ -116,10 +118,12 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
               if (preselectedVideo) onBack();
               else setStep('select_video');
             } else {
-              setWorkflow(item.value.workflow);
+              const chosenWf = item.value.workflow;
+              setWorkflow(chosenWf);
               setLanguage(item.value.language);
-              // Check if existing SRT exists to prompt smart reuse
-              if (video.hasEnSrt) {
+              if (chosenWf === 'myanmar' && video.hasMySrt) {
+                setStep('reuse_my_prompt');
+              } else if (video.hasEnSrt) {
                 setStep('reuse_prompt');
               } else {
                 setStep('probe_prompt');
@@ -132,12 +136,69 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
     );
   }
 
-  // STEP 3: Smart SRT Reuse Prompt
+  // STEP 3A: Smart Myanmar SRT Reuse Prompt
+  if (step === 'reuse_my_prompt') {
+    const items = [
+      {
+        key: 'reuse_my_opt_yes',
+        label: `Yes, reuse existing Myanmar SRT (${video.baseName}_my.srt) [Skips Whisper & Translation!]`,
+        value: true,
+      },
+      {
+        key: 'reuse_my_opt_no',
+        label: `No, re-translate (or transcribe from scratch)`,
+        value: false,
+      },
+      {
+        key: 'reuse_my_opt_back',
+        label: 'Back',
+        value: 'back',
+      },
+    ];
+
+    return h(
+      Box,
+      { flexDirection: 'column' },
+      h(
+        Box,
+        { flexDirection: 'column', borderStyle: 'round', borderColor: 'magentaBright', padding: 1 },
+        h(Text, { bold: true, color: 'magentaBright', marginBottom: 1 }, 'Smart Myanmar SRT Detection:'),
+        h(
+          Text,
+          { color: 'white', marginBottom: 1 },
+          `An existing translated Myanmar subtitle was found at "${video.baseName}_my.srt". Would you like to reuse it directly?`
+        ),
+        h(SelectInput, {
+          items,
+          indicatorComponent: GlowingIndicator,
+          itemComponent: GlowingItem,
+          onSelect: item => {
+            if (item.value === 'back') setStep('workflow');
+            else if (item.value === true) {
+              setReuseMySrt(true);
+              setReuseSrt(false);
+              setStep('burn_mode');
+            } else {
+              setReuseMySrt(false);
+              if (video.hasEnSrt) {
+                setStep('reuse_prompt');
+              } else {
+                setStep('probe_prompt');
+              }
+            }
+          },
+        })
+      ),
+      h(FooterBar, { hints: '[↑/↓] Choose Option  •  [ENTER] Confirm  •  [ESC/Back] Previous' })
+    );
+  }
+
+  // STEP 3B: Smart English SRT Reuse Prompt
   if (step === 'reuse_prompt') {
     const items = [
       {
         key: 'reuse_opt_yes',
-        label: `Yes, reuse existing SRT (${video.baseName}.srt) [Saves 5-10 mins!]`,
+        label: `Yes, reuse existing English SRT (${video.baseName}.srt) [Saves 5-10 mins!]`,
         value: true,
       },
       {
@@ -169,12 +230,16 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           indicatorComponent: GlowingIndicator,
           itemComponent: GlowingItem,
           onSelect: item => {
-            if (item.value === 'back') setStep('workflow');
-            else if (item.value === true) {
+            if (item.value === 'back') {
+              if (workflow === 'myanmar' && video.hasMySrt) setStep('reuse_my_prompt');
+              else setStep('workflow');
+            } else if (item.value === true) {
               setReuseSrt(true);
+              setReuseMySrt(false);
               setStep('burn_mode');
             } else {
               setReuseSrt(false);
+              setReuseMySrt(false);
               setStep('probe_prompt');
             }
           },
@@ -267,7 +332,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           itemComponent: GlowingItem,
           onSelect: item => {
             if (item.value === 'back') {
-              if (reuseSrt) setStep('reuse_prompt');
+              if (reuseMySrt) setStep('reuse_my_prompt');
+              else if (reuseSrt) setStep('reuse_prompt');
               else setStep('probe_prompt');
             } else {
               setBurnMode(item.value);
@@ -277,6 +343,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
                 workflow,
                 language,
                 reuseSrt,
+                reuseMySrt,
                 useProbe,
                 burnMode: item.value,
                 modeName: 'magic',

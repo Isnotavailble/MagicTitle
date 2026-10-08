@@ -106,8 +106,23 @@ export async function translateSrtFile(inputSrtPath, outputSrtPath, options = {}
 
   // Reconstruct translated SRT preserving exact cue numbers and timestamps
   onLog(`Writing reconstructed Myanmar SRT to ${outputSrtPath}...`);
+  let fallbackCount = 0;
   const finalCues = entries.map((orig, i) => {
-    const translatedText = translatedMap.get(i) || orig.text;
+    const origNumericIdx = parseInt(orig.index, 10);
+    const translatedText =
+      translatedMap.get(i) ||
+      translatedMap.get(i + 1) ||
+      (!isNaN(origNumericIdx) ? translatedMap.get(origNumericIdx) : null) ||
+      orig.text;
+
+    if (
+      !translatedMap.has(i) &&
+      !translatedMap.has(i + 1) &&
+      (isNaN(origNumericIdx) || !translatedMap.has(origNumericIdx))
+    ) {
+      fallbackCount++;
+    }
+
     return {
       index: orig.index,
       start: orig.start,
@@ -116,6 +131,10 @@ export async function translateSrtFile(inputSrtPath, outputSrtPath, options = {}
       text: translatedText,
     };
   });
+
+  if (fallbackCount > 0) {
+    onLog(`[Warning] ${fallbackCount} cue(s) could not be mapped to LLM response and retained original text.`);
+  }
 
   writeSrtFile(outputSrtPath, finalCues);
   onLog(`[Success] Saved ${finalCues.length} cues into ${outputSrtPath}`);

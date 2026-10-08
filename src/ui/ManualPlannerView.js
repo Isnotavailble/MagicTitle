@@ -9,10 +9,11 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
   const [step, setStep] = useState(preselectedVideo ? 'steps' : 'select_video');
   const [video, setVideo] = useState(preselectedVideo || null);
   const [extractMetadata, setExtractMetadata] = useState(false);
-  const [extractAudio, setExtractAudio] = useState(true);
-  const [transcribe, setTranscribe] = useState(true);
+  const [extractAudio, setExtractAudio] = useState(preselectedVideo ? !preselectedVideo.hasEnSrt : true);
+  const [transcribe, setTranscribe] = useState(preselectedVideo ? !preselectedVideo.hasEnSrt : true);
   const [language, setLanguage] = useState('en'); // 'en', 'auto'
-  const [translate, setTranslate] = useState(true);
+  const [translate, setTranslate] = useState(preselectedVideo ? !preselectedVideo.hasMySrt : true);
+  const [targetSubtitleLanguage, setTargetSubtitleLanguage] = useState('myanmar');
   const [renderVideo, setRenderVideo] = useState(true);
   const [burnMode, setBurnMode] = useState(true); // true = hard burn, false = soft mux
 
@@ -68,11 +69,17 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
             if (item.value === 'back') onBack();
             else if (item.value === 'download_url') setStep('download_url');
             else {
-              setVideo(item.value);
+              const selectedVid = item.value;
+              setVideo(selectedVid);
               // If English SRT already exists, default extract & transcribe to false
-              if (item.value.hasEnSrt) {
+              if (selectedVid.hasEnSrt) {
                 setExtractAudio(false);
                 setTranscribe(false);
+              }
+              // If Myanmar SRT exists, default translate to false
+              if (selectedVid.hasMySrt) {
+                setTranslate(false);
+                setTargetSubtitleLanguage('myanmar');
               }
               setStep('steps');
             }
@@ -125,9 +132,17 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
     });
 
     if (renderVideo) {
+      const effectiveSubLang = translate ? 'myanmar' : targetSubtitleLanguage;
+      if (!translate) {
+        items.push({
+          key: 'step_cycle_sub_lang',
+          label: `   ├─ Subtitle Language: [ ${effectiveSubLang === 'myanmar' ? 'Myanmar (_my.srt)' : 'English (.srt)'} ] (Click to toggle)`,
+          value: 'cycle_sub_lang',
+        });
+      }
       items.push({
         key: 'step_toggle_burn',
-        label: `   └─ Output Mode: ${burnMode ? 'Hard Burn (Padauk + HarfBuzz)' : 'Soft Mux (mov_text)'}`,
+        label: `   └─ Output Mode: ${burnMode ? `Hard Burn (${effectiveSubLang === 'myanmar' ? 'Padauk + HarfBuzz' : 'FFmpeg libass'})` : 'Soft Mux (mov_text)'}`,
         value: 'toggle_burn',
       });
     }
@@ -158,16 +173,20 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
         setLanguage(curr => (curr === 'en' ? 'auto' : 'en'));
       } else if (item.value === 'toggle_translate') {
         setTranslate(v => !v);
+      } else if (item.value === 'cycle_sub_lang') {
+        setTargetSubtitleLanguage(curr => (curr === 'myanmar' ? 'english' : 'myanmar'));
       } else if (item.value === 'toggle_render') {
         setRenderVideo(v => !v);
       } else if (item.value === 'toggle_burn') {
         setBurnMode(v => !v);
       } else if (item.value === 'execute') {
+        const effectiveWorkflow = translate ? 'myanmar' : targetSubtitleLanguage;
         onStartJob({
           video,
-          workflow: translate ? 'myanmar' : 'english',
+          workflow: effectiveWorkflow,
           language,
           reuseSrt: !transcribe && video.hasEnSrt,
+          reuseMySrt: !translate && effectiveWorkflow === 'myanmar' && video.hasMySrt,
           burnMode,
           manualPlan: {
             extractMetadata,
@@ -192,7 +211,8 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
           Box,
           { marginBottom: 1 },
           h(Text, { bold: true, color: 'white' }, `Plan Steps for: ${video.fileName} `),
-          h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY]' : '[EN: --   ]')
+          h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY] ' : '[EN: --   ] '),
+          h(Text, { color: video.hasMySrt ? 'magentaBright' : 'gray', bold: video.hasMySrt }, video.hasMySrt ? '[MY: READY]' : '[MY: --   ]')
         ),
         h(Text, { color: 'gray', marginBottom: 1 }, 'Toggle steps on or off, then choose Start:'),
         h(SelectInput, { items, indicatorComponent: GlowingIndicator, itemComponent: GlowingItem, onSelect: handleSelect })

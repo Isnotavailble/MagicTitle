@@ -107,20 +107,9 @@ export function sanitizeSrtEntries(entries, options = {}) {
     const startMs = timeToMs(entry.start);
     let endMs = timeToMs(entry.end);
 
-    // If end is before or equal to start, assign reasonable default
+    // If end is before or equal to start, assign reasonable minimum default
     if (endMs <= startMs) {
       endMs = startMs + minDurationMs;
-    }
-
-    const words = rawText.split(/\s+/).filter(Boolean);
-    const wordCount = Math.max(1, words.length);
-
-    // Natural reading display time calculation
-    const calculatedMaxMs = Math.max(minDurationMs, Math.min(maxDurationMs, wordCount * msPerWord + baseBufferMs));
-    const currentDurationMs = endMs - startMs;
-
-    if (currentDurationMs > calculatedMaxMs) {
-      endMs = startMs + calculatedMaxMs;
     }
 
     sanitized.push({
