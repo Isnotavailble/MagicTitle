@@ -60,6 +60,13 @@ export function resolvePaths(language = 'en') {
   ];
   let vadModelFile = vadCandidates.find(p => fs.existsSync(p)) || null;
 
+  // 4c. RNNoise Denoise Model File (bd.rnnn / somafm.rnnn)
+  const rnnCandidates = [
+    path.join(PROJECT_ROOT, 'models', 'bd.rnnn'),
+    path.join(PROJECT_ROOT, 'models', 'somafm.rnnn'),
+  ];
+  let rnnModelFile = rnnCandidates.find(p => fs.existsSync(p)) || null;
+
   // 5. Fonts Directory & Padauk
   const fontsDir = path.join(PROJECT_ROOT, 'fonts', 'Padauk');
   const padaukFont = path.join(fontsDir, 'Padauk-Regular.ttf');
@@ -71,6 +78,7 @@ export function resolvePaths(language = 'en') {
     whisperBin,
     modelFile,
     vadModelFile,
+    rnnModelFile,
     fontsDir,
     padaukFont,
     hasFFmpeg: fs.existsSync(ffmpegBin) || ffmpegBin === 'ffmpeg',
@@ -78,6 +86,7 @@ export function resolvePaths(language = 'en') {
     hasWhisper: Boolean(whisperBin && fs.existsSync(whisperBin)),
     hasModel: Boolean(modelFile && fs.existsSync(modelFile)),
     hasVadModel: Boolean(vadModelFile && fs.existsSync(vadModelFile)),
+    hasRnnModel: Boolean(rnnModelFile && fs.existsSync(rnnModelFile)),
     hasPadaukFont: fs.existsSync(padaukFont),
   };
 }

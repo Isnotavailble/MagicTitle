@@ -11,6 +11,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   const [workflow, setWorkflow] = useState(null); // 'english' or 'myanmar'
   const [language, setLanguage] = useState('en'); // 'en', 'auto'
   const [reuseSrt, setReuseSrt] = useState(false);
+  const [useProbe, setUseProbe] = useState(true);
   const [burnMode, setBurnMode] = useState(false); // false = soft mux, true = hard burn
 
   const h = React.createElement;
@@ -121,7 +122,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
               if (video.hasEnSrt) {
                 setStep('reuse_prompt');
               } else {
-                setStep('burn_mode');
+                setStep('probe_prompt');
               }
             }
           },
@@ -169,8 +170,61 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           itemComponent: GlowingItem,
           onSelect: item => {
             if (item.value === 'back') setStep('workflow');
-            else {
-              setReuseSrt(item.value);
+            else if (item.value === true) {
+              setReuseSrt(true);
+              setStep('burn_mode');
+            } else {
+              setReuseSrt(false);
+              setStep('probe_prompt');
+            }
+          },
+        })
+      ),
+      h(FooterBar, { hints: '[↑/↓] Choose Option  •  [ENTER] Confirm  •  [ESC/Back] Previous' })
+    );
+  }
+
+  // STEP 3.5: Pre-process with tiny.en? Prompt
+  if (step === 'probe_prompt') {
+    const items = [
+      {
+        key: 'probe_opt_yes',
+        label: 'Yes, pre-process with tiny.en (Recommended: Harvests keywords for maximum accuracy)',
+        value: true,
+      },
+      {
+        key: 'probe_opt_no',
+        label: 'No, skip pre-processing and transcribe directly',
+        value: false,
+      },
+      {
+        key: 'probe_opt_back',
+        label: 'Back',
+        value: 'back',
+      },
+    ];
+
+    return h(
+      Box,
+      { flexDirection: 'column' },
+      h(
+        Box,
+        { flexDirection: 'column', borderStyle: 'round', borderColor: 'greenBright', padding: 1 },
+        h(Text, { bold: true, color: 'greenBright', marginBottom: 1 }, 'Dynamic Keyword Probe:'),
+        h(
+          Text,
+          { color: 'white', marginBottom: 1 },
+          'Pre-process with tiny.en? (Runs a fast probe to harvest domain vocabulary & proper names for small.en)'
+        ),
+        h(SelectInput, {
+          items,
+          indicatorComponent: GlowingIndicator,
+          itemComponent: GlowingItem,
+          onSelect: item => {
+            if (item.value === 'back') {
+              setStep(video.hasEnSrt ? 'reuse_prompt' : 'workflow');
+            } else {
+              setUseProbe(item.value);
               setStep('burn_mode');
             }
           },
@@ -212,8 +266,10 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           indicatorComponent: GlowingIndicator,
           itemComponent: GlowingItem,
           onSelect: item => {
-            if (item.value === 'back') setStep(video.hasEnSrt ? 'reuse_prompt' : 'workflow');
-            else {
+            if (item.value === 'back') {
+              if (reuseSrt) setStep('reuse_prompt');
+              else setStep('probe_prompt');
+            } else {
               setBurnMode(item.value);
               // Ready to run!
               onStartJob({
@@ -221,6 +277,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
                 workflow,
                 language,
                 reuseSrt,
+                useProbe,
                 burnMode: item.value,
                 modeName: 'magic',
               });

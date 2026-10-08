@@ -15,6 +15,7 @@ import { ModelManagerView } from './ui/ModelManagerView.js';
 
 import { extractAudio, burnEnglishSubtitles, burnMyanmarSubtitles, muxSoftSubtitles } from './core/ffmpeg.js';
 import { transcribeAudio } from './core/whisper.js';
+import { runMetadataProbe } from './core/probeManager.js';
 import { translateSrtFile } from './services/translator.js';
 import { readSrtFile, writeSrtFile, sanitizeSrtEntries } from './core/srt.js';
 import { generateSafeHash, resolvePaths } from './core/paths.js';
@@ -52,6 +53,7 @@ export function App() {
     const totalStartTime = Date.now();
 
     // Determine required steps
+    const shouldProbe = manualPlan ? Boolean(manualPlan.extractMetadata) : (jobConfig.useProbe !== undefined ? Boolean(jobConfig.useProbe) : false);
     const shouldExtract = manualPlan ? manualPlan.extractAudio : !reuseSrt;
     const shouldTranscribe = manualPlan ? manualPlan.transcribe : !reuseSrt;
     const shouldTranslate = manualPlan ? manualPlan.translate : isMyanmar;
@@ -67,10 +69,14 @@ export function App() {
     const modelName = activeModel?.displayName || 'Whisper';
     const isLargeTurbo = Boolean(activeModel?.id?.includes('turbo') || activeModel?.id?.includes('large'));
 
-    const totalStepCount = (shouldExtract ? 1 : 0) + (shouldTranscribe ? 1 : 0) + (shouldTranslate ? 1 : 0) + (shouldRender ? 1 : 0);
+    const totalStepCount = (shouldProbe ? 1 : 0) + (shouldExtract ? 1 : 0) + (shouldTranscribe ? 1 : 0) + (shouldTranslate ? 1 : 0) + (shouldRender ? 1 : 0);
     let stepNum = 1;
 
     const stepDefs = {
+      probe: shouldProbe ? {
+        id: 'probe',
+        title: `[${stepNum++}/${totalStepCount}] Extract Metadata Probe with tiny.en (RNNoise)`,
+      } : null,
       extract: shouldExtract ? {
         id: 'extract',
         title: `[${stepNum++}/${totalStepCount}] Extract 16kHz Audio (FFmpeg bandpass${isLargeTurbo ? ' 80-7500Hz' : ' + dynaudnorm'})`,
@@ -126,6 +132,26 @@ export function App() {
     let activeSrt = enSrt;
 
     try {
+      // Step 0: Metadata Probe with tiny.en
+      if (shouldProbe) {
+        pushStatic({ id: `step_start_probe`, type: 'step_start', title: stepDefs.probe.title });
+        const sTime = Date.now();
+        addStaticLog(`Running fast vocabulary probe with tiny.en (RNNoise vocal isolation)...`);
+
+        const probeResult = await runMetadataProbe(video.fullPath, {
+          onLog: msg => addStaticLog(msg),
+          onProgress: progress => {
+            if (progress?.cue) {
+              addStaticLog(progress.cue);
+            }
+          },
+        });
+
+        const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));
+        addStaticLog(`Probe metadata generated: ${path.basename(probeResult.promptPath)}`);
+        pushStatic({ id: `step_done_probe`, type: 'step_done', text: `✓ Step completed in ${dSec}s` });
+      }
+
       // Step 1: Audio Extraction
       if (shouldExtract) {
         // Print Step 1 Header FIRST
@@ -150,11 +176,32 @@ export function App() {
         const modelLabel = activeModel?.displayName || 'Active Whisper Model';
         addStaticLog(`Transcribing audio with Whisper [${modelLabel}] [Language: ${language.toUpperCase()}]...`);
 
-        await transcribeAudio(safeTempWav, safeTempWhisperPrefix, { language }, progress => {
-          if (progress?.cue) {
-            addStaticLog(progress.cue);
+        // Check for dynamic prompt file (_temp_${safeId}_prompt.txt or <baseName>_prompt.txt)
+        const tempPromptFile = path.join(dir, `_temp_${safeId}_prompt.txt`);
+        const userPromptFile = path.join(dir, `${baseName}_prompt.txt`);
+        let dynamicPrompt = null;
+
+        if (fs.existsSync(tempPromptFile)) {
+          dynamicPrompt = fs.readFileSync(tempPromptFile, 'utf-8').trim();
+        } else if (fs.existsSync(userPromptFile)) {
+          dynamicPrompt = fs.readFileSync(userPromptFile, 'utf-8').trim();
+        }
+
+        if (dynamicPrompt) {
+          const preview = dynamicPrompt.length > 70 ? `${dynamicPrompt.slice(0, 70)}...` : dynamicPrompt;
+          addStaticLog(`[Dynamic Prompt] Injected context: "${preview}"`);
+        }
+
+        await transcribeAudio(
+          safeTempWav,
+          safeTempWhisperPrefix,
+          { language, prompt: dynamicPrompt },
+          progress => {
+            if (progress?.cue) {
+              addStaticLog(progress.cue);
+            }
           }
-        });
+        );
 
         // Sanitize and save generated subtitles (clamp hanging durations & remove repetition loops)
         if (fs.existsSync(safeTempWhisperSrt)) {

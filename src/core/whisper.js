@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { resolvePaths } from './paths.js';
 import { isModelActive, getActiveModel } from './modelManager.js';
+import { PROJECT_ROOT } from '../config.js';
 
 /**
  * Transcribes audio file directly using whisper-cli.exe with active model parameters.
@@ -23,13 +24,22 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
     options = optionsOrProgress;
   }
 
-  const { language = 'en' } = options;
+  const { language = 'en', prompt = null } = options;
 
-  if (!isModelActive()) {
-    return Promise.reject(new Error('No Whisper model is currently active. Please select an active model from the Model Manager first.'));
+  let activeModel = options.modelProfile;
+  if (!activeModel) {
+    if (!isModelActive()) {
+      return Promise.reject(new Error('No Whisper model is currently active. Please select an active model from the Model Manager first.'));
+    }
+    activeModel = getActiveModel();
+  } else if (!activeModel.fullPath) {
+    const modelsDir = path.join(PROJECT_ROOT, 'models');
+    activeModel = {
+      ...activeModel,
+      fullPath: path.join(modelsDir, activeModel.fileName),
+    };
   }
 
-  const activeModel = getActiveModel();
   const { whisperBin, vadModelFile } = resolvePaths(language);
 
   if (!whisperBin || !fs.existsSync(whisperBin)) {
@@ -64,6 +74,8 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
         ...(activeModel.vadSpeechPadMs !== undefined ? ['-vp', String(activeModel.vadSpeechPadMs)] : []),
         ...(activeModel.vadMinSpeechDurationMs !== undefined ? ['-vspd', String(activeModel.vadMinSpeechDurationMs)] : []),
       ] : []),
+      ...(activeModel.entropyThold !== undefined ? ['--entropy-thold', String(activeModel.entropyThold)] : []),
+      ...(prompt ? ['--prompt', prompt] : []),
       '-l', language,
       '-osrt',
       '-of', outputPrefix,

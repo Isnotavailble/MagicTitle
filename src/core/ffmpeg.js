@@ -22,23 +22,42 @@ export function extractAudio(videoPath, outWavPath, optionsOrProgress, onProgres
   }
 
   const { language = 'en', isLargeTurbo: explicitLargeTurbo, audioFilter } = options;
-  const { ffmpegBin, modelFile } = resolvePaths(language);
+  const { ffmpegBin, modelFile, rnnModelFile, hasRnnModel, projectRoot } = resolvePaths(language);
+
+  // 1. Ensure target directory exists to prevent "Invalid argument" on Windows
+  const outDir = path.dirname(outWavPath);
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
+  }
 
   const isLargeTurbo = explicitLargeTurbo !== undefined
     ? explicitLargeTurbo
     : Boolean(modelFile && (modelFile.toLowerCase().includes('large') || modelFile.toLowerCase().includes('turbo')));
 
-  const activeModel = getActiveModel();
-  const filterString = audioFilter || (activeModel?.audioFilter || (isLargeTurbo
-    ? 'highpass=f=80,lowpass=f=7500'
-    : 'highpass=f=80,lowpass=f=7500,dynaudnorm'));
+  const activeModel = options.modelProfile || getActiveModel();
+  const baseFilter = (
+    audioFilter ||
+    activeModel?.audioFilter ||
+    (isLargeTurbo ? 'highpass=f=80,lowpass=f=7500' : 'highpass=f=80,lowpass=f=7500,dynaudnorm')
+  ).trim().replace(/^,+/, '');
+
+  // 2. Resolve bd.rnnn: check resolvePaths first, fall back to PROJECT_ROOT/models
+  const candidateRnn = rnnModelFile || path.join(projectRoot || process.cwd(), 'models', 'bd.rnnn');
+  const rnnExists = fs.existsSync(candidateRnn);
+  const normalizedRnnPath = escapeFilterPath(candidateRnn);
+
+  // 3. Attach arnndn cleanly with single quotes
+  const useNoiseModel = Boolean(activeModel?.noiseModelUsed === true && rnnExists);
+  const filterString = useNoiseModel
+    ? `arnndn=m='${normalizedRnnPath}',${baseFilter}`
+    : baseFilter;
 
   return new Promise((resolve, reject) => {
     const args = [
       '-y',
       '-i', videoPath,
       '-vn',
-      '-af', filterString,
+      ...(filterString ? ['-af', filterString] : []),
       '-ar', '16000',
       '-ac', '1',
       '-c:a', 'pcm_s16le',

@@ -13,38 +13,77 @@ export const MODEL_PROFILES = {
     id: 'large-turbo-q5',
     displayName: 'Large v3 Turbo (Q5_0)',
     fileName: 'ggml-large-v3-turbo-q5_0.bin',
-    threads: parseInt(process.env.WHISPER_TURBO_THREADS || '12', 10), // Full 12-thread CPU throughput
+    threads: parseInt(process.env.WHISPER_TURBO_THREADS || '6', 10), // Full 12-thread CPU throughput
     beamSize: 1, // Fast greedy search
     bestOf: 1,   // Single candidate evaluation
     flashAttention: true, // Optimized Flash Attention
-    noFallback: true, // Disables temperature fallback loops
-    maxContext: 128,
-    noSpeechThreshold: 0.70,
-    audioFilter: 'highpass=f=80,lowpass=f=7500',
-    description: 'Deep neural precision, zero hallucinations (Q5_0 ~547MB)',
+    noFallback: false, // Enables temperature fallback to break out of hallucination loops
+    splitOnWord: true, // Snaps cue boundaries to word ends
+    wordTimestamps: 0.05, // Tight millisecond token timestamps
+    maxContext: 128, // Preserves sentence continuity
+    noSpeechThreshold: 0.65, // Rejects punch/impact non-speech sounds
+    entropyThold: 2.4, // Standard threshold to abort repetition loops
+    noiseModelUsed: false,
+    audioFilter: 'highpass=f=66,lowpass=f=7500,equalizer=f=3500:t=q:w=1.5:g=3',
+    description: 'Deep neural precision (32 layers) with 66Hz low-end & anti-hallucination (~547MB)',
+  },
+  'tiny-en': {
+    id: 'tiny-en',
+    displayName: 'Tiny English Probe (Metadata Extractor)',
+    fileName: 'ggml-tiny.en.bin',
+    threads: parseInt(process.env.WHISPER_THREADS || '6', 10),
+    beamSize: 2, // Ultra-fast greedy search
+    bestOf: 2,
+    flashAttention: false,
+    noFallback: true, // Fast single-pass
+    splitOnWord: false, // Decoupled timing
+    maxContext: 64,
+    noSpeechThreshold: 0.60,
+    entropyThold: 2.4,
+    noiseModelUsed: true, // Uses models/bd.rnnn for vocal isolation
+    audioFilter: 'highpass=f=75,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=75:g=15:m=10:p=0.9:s=12,aresample=16000:async=1',
+    description: 'Ultra-fast vocabulary harvester probe with RNNoise vocal isolation (~77MB)',
   },
 
   'small-en': {
     id: 'small-en',
     displayName: 'Small Model (English)',
     fileName: 'ggml-small.en.bin',
+    threads: parseInt(process.env.WHISPER_THREADS || '8', 10),
+    beamSize: 5,
+    bestOf: 5,
+    flashAttention: false,
+    noFallback: false, // Disables temperature retry loops
+    splitOnWord: true, // Splits cue boundaries on exact words (-sow)
+    wordTimestamps: 0.15,
+    maxContext: 224, // Prevents autoregressive repetition loops
+    noSpeechThreshold: 0.60,
+    entropyThold: 2.4,
+    noiseModelUsed: false,
+	//highpass=f=66,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=120:g=5:m=3:p=0.95:b=1,equalizer=f=3500:t=q:w=1.5:g=3
+    audioFilter: 'highpass=f=66,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=120:g=5:m=3:p=0.95:b=1:s=0,equalizer=f=3500:t=q:w=1.5:g=3',
+    description: 'Clean speech bandpass (66-7500Hz) with controlled leveling & 3.5kHz EQ (~487MB)',
+  },
+
+  'small-en-universal': {
+    id: 'small-en-universal',
+    displayName: 'Small Model Universal',
+    fileName: 'ggml-small.en.bin',
     threads: parseInt(process.env.WHISPER_THREADS || '6', 10),
     beamSize: 5,
     bestOf: 5,
     flashAttention: false,
-    noFallback: true, // Disables temperature retry loops
-    splitOnWord: false, // Splits cue boundaries on exact words (-sow)
-	//maxLen: 48 , // Keeps line lengths natural and synchronized (-ml 42)
-    wordTimestamps: 0.01, // Exact millisecond token probability threshold (-wt 0.01)
-    vad: false, // Enable Silero VAD voice activity detection
-    vadThreshold: 0.50, // Sensitive speech threshold
-    vadSpeechPadMs: 40, // Tight 40ms speech padding so subtitles don't start early
-    vadMinSpeechDurationMs: 120, // Captures short 1-syllable vocalizations
-    maxContext: 128, // Prevents autoregressive repetition loops
-    noSpeechThreshold: 0.70,
-    audioFilter: 'highpass=f=55,lowpass=f=7500', // Clean speech bandpass without dynaudnorm noise boosting
-    description: 'Fast 1-second English speech recognition (~487MB)',
+    noFallback: false,
+    splitOnWord: true,
+    wordTimestamps: 0.05,
+    maxContext: 128,
+    noSpeechThreshold: 0.60,
+    entropyThold: 2.8,
+    noiseModelUsed: false,
+    audioFilter: 'highpass=f=66,lowpass=f=7500,equalizer=f=3500:t=q:w=1.5:g=3',
+    description: 'Clean speech bandpass (66-7500Hz) with 3.5kHz friction presence EQ (~487MB)',
   },
+  
   'small-en-reel' : {
 	id: 'small-en-reel',
     displayName: 'Small Model Reels (English)',

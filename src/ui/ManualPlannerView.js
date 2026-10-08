@@ -8,6 +8,7 @@ import { UrlDownloadView } from './UrlDownloadView.js';
 export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
   const [step, setStep] = useState(preselectedVideo ? 'steps' : 'select_video');
   const [video, setVideo] = useState(preselectedVideo || null);
+  const [extractMetadata, setExtractMetadata] = useState(false);
   const [extractAudio, setExtractAudio] = useState(true);
   const [transcribe, setTranscribe] = useState(true);
   const [language, setLanguage] = useState('en'); // 'en', 'auto'
@@ -86,6 +87,11 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
   if (step === 'steps') {
     const items = [
       {
+        key: 'step_toggle_metadata',
+        label: `${extractMetadata ? '[✓]' : '[ ]'} 0. Extract Metadata Probe with tiny.en (Generates _prompt.txt)`,
+        value: 'toggle_metadata',
+      },
+      {
         key: 'step_toggle_extract',
         label: `${extractAudio ? '[✓]' : '[ ]'} 1. Extract 16kHz Audio (FFmpeg bandpass + dynaudnorm)`,
         value: 'toggle_extract',
@@ -142,6 +148,8 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
       if (item.value === 'back') {
         if (preselectedVideo) onBack();
         else setStep('select_video');
+      } else if (item.value === 'toggle_metadata') {
+        setExtractMetadata(v => !v);
       } else if (item.value === 'toggle_extract') {
         setExtractAudio(v => !v);
       } else if (item.value === 'toggle_transcribe') {
@@ -162,6 +170,7 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
           reuseSrt: !transcribe && video.hasEnSrt,
           burnMode,
           manualPlan: {
+            extractMetadata,
             extractAudio,
             transcribe,
             translate,

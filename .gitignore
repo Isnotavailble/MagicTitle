@@ -24,6 +24,7 @@ temp/
 testContents/*.mp4
 testContents/*_subtitled.*
 testContents/*.srt
+testContents/*_prompt.txt
 
 # Operating System & IDE Artifacts
 .DS_Store
