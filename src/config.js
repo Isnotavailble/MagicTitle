@@ -61,6 +61,11 @@ export const MODEL_PROFILES = {
     noSpeechThreshold: 0.60,
     entropyThold: 2.4,
     noiseModelUsed: false,
+    useJsonOutput: true,
+    maxSilenceGapMs: 750,
+    minCueDurationMs: 1200,
+    maxCueDurationMs: 7000,
+    maxCharsPerLine: 42,
 	//highpass=f=66,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=120:g=5:m=3:p=0.95:b=1,equalizer=f=3500:t=q:w=1.5:g=3
     audioFilter: 'highpass=f=70,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=70:g=5:m=3:p=0.95:b=1:s=0',
     description: 'Clean speech bandpass (66-7500Hz) with controlled leveling & 3.5kHz EQ (~487MB)',

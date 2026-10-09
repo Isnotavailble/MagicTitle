@@ -145,3 +145,5 @@ export function writeSrtFile(filePath, entries) {
   const content = stringifySrt(entries);
   fs.writeFileSync(filePath, content, 'utf-8');
 }
+
+export { normalizeTranscriptionJson, normalizeSrtFromJson } from './srtNormalizer.js';

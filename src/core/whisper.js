@@ -50,7 +50,8 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
     return Promise.reject(new Error(`Active model file not found at ${activeModel?.fullPath}`));
   }
 
-  const expectedSrtPath = `${outputPrefix}.srt`;
+  const useJson = Boolean(activeModel?.useJsonOutput);
+  const expectedOutputPath = useJson ? `${outputPrefix}.json` : `${outputPrefix}.srt`;
 
   return new Promise((resolve, reject) => {
     const args = [
@@ -77,7 +78,7 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
       ...(activeModel.entropyThold !== undefined ? ['--entropy-thold', String(activeModel.entropyThold)] : []),
       ...(prompt ? ['--prompt', prompt] : []),
       '-l', language,
-      '-osrt',
+      ...(useJson ? ['-oj'] : ['-osrt']),
       '-of', outputPrefix,
     ];
 
@@ -110,10 +111,10 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
     });
 
     child.on('close', code => {
-      if (code === 0 && fs.existsSync(expectedSrtPath)) {
-        resolve(expectedSrtPath);
-      } else if (fs.existsSync(expectedSrtPath)) {
-        resolve(expectedSrtPath);
+      if (code === 0 && fs.existsSync(expectedOutputPath)) {
+        resolve(expectedOutputPath);
+      } else if (fs.existsSync(expectedOutputPath)) {
+        resolve(expectedOutputPath);
       } else {
         const errorLines = outputBuffer
           .split(/\r?\n/)

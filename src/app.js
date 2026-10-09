@@ -18,6 +18,7 @@ import { transcribeAudio } from './core/whisper.js';
 import { runMetadataProbe } from './core/probeManager.js';
 import { translateSrtFile } from './services/translator.js';
 import { readSrtFile, writeSrtFile, sanitizeSrtEntries } from './core/srt.js';
+import { normalizeSrtFromJson } from './core/srtNormalizer.js';
 import { generateSafeHash, resolvePaths } from './core/paths.js';
 import { isModelActive, getActiveModel } from './core/modelManager.js';
 import { CONFIG } from './config.js';
@@ -121,6 +122,7 @@ export function App() {
     const safeTempWav = path.join(dir, `_temp_${safeId}_16k.wav`);
     const safeTempWhisperPrefix = path.join(dir, `_temp_${safeId}`);
     const safeTempWhisperSrt = path.join(dir, `_temp_${safeId}.srt`);
+    const safeTempWhisperJson = path.join(dir, `_temp_${safeId}.json`);
 
     // Target human-readable outputs
     const enSrt = path.join(dir, `${baseName}.srt`);
@@ -195,7 +197,7 @@ export function App() {
         await transcribeAudio(
           safeTempWav,
           safeTempWhisperPrefix,
-          { language, prompt: dynamicPrompt },
+          { language, prompt: dynamicPrompt, modelProfile: activeModel },
           progress => {
             if (progress?.cue) {
               addStaticLog(progress.cue);
@@ -203,8 +205,12 @@ export function App() {
           }
         );
 
-        // Sanitize and save generated subtitles (clamp hanging durations & remove repetition loops)
-        if (fs.existsSync(safeTempWhisperSrt)) {
+        // Sanitize and save generated subtitles
+        if (activeModel?.useJsonOutput && fs.existsSync(safeTempWhisperJson)) {
+          addStaticLog(`Normalizing full sentences & gaps via srtNormalizer (compromise NLP)...`);
+          normalizeSrtFromJson(safeTempWhisperJson, enSrt, activeModel);
+          try { fs.unlinkSync(safeTempWhisperJson); } catch {}
+        } else if (fs.existsSync(safeTempWhisperSrt)) {
           const rawCues = readSrtFile(safeTempWhisperSrt);
           const sanitizedCues = sanitizeSrtEntries(rawCues);
           writeSrtFile(enSrt, sanitizedCues);
