@@ -32,16 +32,16 @@ export const MODEL_PROFILES = {
     displayName: 'Tiny English Probe (Metadata Extractor)',
     fileName: 'ggml-tiny.en.bin',
     threads: parseInt(process.env.WHISPER_THREADS || '6', 10),
-    beamSize: 2, // Ultra-fast greedy search
-    bestOf: 2,
+    beamSize: 5, // Ultra-fast greedy search
+    bestOf: 5,
     flashAttention: false,
-    noFallback: true, // Fast single-pass
-    splitOnWord: false, // Decoupled timing
-    maxContext: 64,
+    noFallback: false, // Fast single-pass
+    splitOnWord: true, // Decoupled timing
+    maxContext: 224,
     noSpeechThreshold: 0.60,
     entropyThold: 2.4,
     noiseModelUsed: true, // Uses models/bd.rnnn for vocal isolation
-    audioFilter: 'highpass=f=75,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=75:g=15:m=10:p=0.9:s=12,aresample=16000:async=1',
+    audioFilter: 'highpass=f=70,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=70:g=5:m=3:p=0.95:b=1:s=0',
     description: 'Ultra-fast vocabulary harvester probe with RNNoise vocal isolation (~77MB)',
   },
 
@@ -55,13 +55,14 @@ export const MODEL_PROFILES = {
     flashAttention: false,
     noFallback: false, // Disables temperature retry loops
     splitOnWord: true, // Splits cue boundaries on exact words (-sow)
-    wordTimestamps: 0.15,
+    wordTimestamps: 0.01,
+	maxLen : 42,
     maxContext: 224, // Prevents autoregressive repetition loops
     noSpeechThreshold: 0.60,
     entropyThold: 2.4,
     noiseModelUsed: false,
 	//highpass=f=66,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=120:g=5:m=3:p=0.95:b=1,equalizer=f=3500:t=q:w=1.5:g=3
-    audioFilter: 'highpass=f=66,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=120:g=5:m=3:p=0.95:b=1:s=0,equalizer=f=3500:t=q:w=1.5:g=3',
+    audioFilter: 'highpass=f=70,lowpass=f=7500,alimiter=limit=-3dB:attack=5:release=50:asc=1,dynaudnorm=f=70:g=5:m=3:p=0.95:b=1:s=0',
     description: 'Clean speech bandpass (66-7500Hz) with controlled leveling & 3.5kHz EQ (~487MB)',
   },
 
