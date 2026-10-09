@@ -32,6 +32,9 @@ export function scanDirectoryForVideos(dirPath) {
       const hasMySrt = fs.existsSync(mySrtPath);
       const hasOutputVideo = fs.existsSync(subtitledVideoPath) || fs.existsSync(mySubtitledVideoPath);
 
+      const promptPath = path.join(targetDir, `${baseName}_prompt.txt`);
+      const hasPrompt = fs.existsSync(promptPath);
+
       videoEntries.push({
         fileName: file,
         fullPath,
@@ -43,10 +46,13 @@ export function scanDirectoryForVideos(dirPath) {
         enSrtPath,
         hasMySrt,
         mySrtPath,
+        hasPrompt,
+        promptPath,
         hasOutputVideo,
         statusBadges: {
           en: hasEnSrt,
           my: hasMySrt,
+          prompt: hasPrompt,
           subtitled: hasOutputVideo,
         },
       });

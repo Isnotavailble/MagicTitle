@@ -13,6 +13,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
   const [reuseSrt, setReuseSrt] = useState(false);
   const [reuseMySrt, setReuseMySrt] = useState(false);
   const [useProbe, setUseProbe] = useState(true);
+  const [usePrompt, setUsePrompt] = useState(true);
   const [burnMode, setBurnMode] = useState(false); // false = soft mux, true = hard burn
 
   const h = React.createElement;
@@ -106,7 +107,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           { marginBottom: 1 },
           h(Text, { bold: true, color: 'white' }, `Selected Video: ${video.fileName} `),
           h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY] ' : '[EN: --   ] '),
-          h(Text, { color: video.hasMySrt ? 'magentaBright' : 'gray', bold: video.hasMySrt }, video.hasMySrt ? '[MY: READY]' : '[MY: --   ]')
+          h(Text, { color: video.hasMySrt ? 'magentaBright' : 'gray', bold: video.hasMySrt }, video.hasMySrt ? '[MY: READY] ' : '[MY: --   ] '),
+          h(Text, { color: video.hasPrompt ? 'yellowBright' : 'gray', bold: video.hasPrompt }, video.hasPrompt ? '[PROMPT: READY]' : '[PROMPT: --   ]')
         ),
         h(Text, { color: 'cyan', marginBottom: 1 }, 'Choose Subtitle Workflow:'),
         h(SelectInput, {
@@ -125,6 +127,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
                 setStep('reuse_my_prompt');
               } else if (video.hasEnSrt) {
                 setStep('reuse_prompt');
+              } else if (video.hasPrompt) {
+                setStep('existing_prompt_choice');
               } else {
                 setStep('probe_prompt');
               }
@@ -182,6 +186,8 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
               setReuseMySrt(false);
               if (video.hasEnSrt) {
                 setStep('reuse_prompt');
+              } else if (video.hasPrompt) {
+                setStep('existing_prompt_choice');
               } else {
                 setStep('probe_prompt');
               }
@@ -240,7 +246,77 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
             } else {
               setReuseSrt(false);
               setReuseMySrt(false);
-              setStep('probe_prompt');
+              if (video.hasPrompt) {
+                setStep('existing_prompt_choice');
+              } else {
+                setStep('probe_prompt');
+              }
+            }
+          },
+        })
+      ),
+      h(FooterBar, { hints: '[↑/↓] Choose Option  •  [ENTER] Confirm  •  [ESC/Back] Previous' })
+    );
+  }
+
+  // STEP 3.4: Existing Dynamic Prompt Choice
+  if (step === 'existing_prompt_choice') {
+    const items = [
+      {
+        key: 'prompt_opt_reuse',
+        label: `Yes, reuse existing prompt (${video.baseName}_prompt.txt) [Skips probe pass]`,
+        value: 'reuse',
+      },
+      {
+        key: 'prompt_opt_reprobe',
+        label: 'No, re-run fresh tiny.en probe to regenerate vocabulary',
+        value: 'reprobe',
+      },
+      {
+        key: 'prompt_opt_skip',
+        label: 'Skip entirely (No prompt, transcribe with raw unconditioned audio context)',
+        value: 'skip',
+      },
+      {
+        key: 'prompt_opt_back',
+        label: 'Back',
+        value: 'back',
+      },
+    ];
+
+    return h(
+      Box,
+      { flexDirection: 'column' },
+      h(
+        Box,
+        { flexDirection: 'column', borderStyle: 'round', borderColor: 'yellowBright', padding: 1 },
+        h(Text, { bold: true, color: 'yellowBright', marginBottom: 1 }, 'Existing Dynamic Prompt Detected:'),
+        h(
+          Text,
+          { color: 'white', marginBottom: 1 },
+          `A saved vocabulary prompt was found at "${video.baseName}_prompt.txt". Would you like to reuse it, re-run probe, or skip entirely?`
+        ),
+        h(SelectInput, {
+          items,
+          indicatorComponent: GlowingIndicator,
+          itemComponent: GlowingItem,
+          onSelect: item => {
+            if (item.value === 'back') {
+              if (video.hasEnSrt) setStep('reuse_prompt');
+              else if (workflow === 'myanmar' && video.hasMySrt) setStep('reuse_my_prompt');
+              else setStep('workflow');
+            } else if (item.value === 'reuse') {
+              setUseProbe(false);
+              setUsePrompt(true);
+              setStep('burn_mode');
+            } else if (item.value === 'reprobe') {
+              setUseProbe(true);
+              setUsePrompt(true);
+              setStep('burn_mode');
+            } else if (item.value === 'skip') {
+              setUseProbe(false);
+              setUsePrompt(false);
+              setStep('burn_mode');
             }
           },
         })
@@ -259,7 +335,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
       },
       {
         key: 'probe_opt_no',
-        label: 'No, skip pre-processing and transcribe directly',
+        label: 'No, skip pre-processing and transcribe with clean audio context (No prompt)',
         value: false,
       },
       {
@@ -288,8 +364,13 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           onSelect: item => {
             if (item.value === 'back') {
               setStep(video.hasEnSrt ? 'reuse_prompt' : 'workflow');
+            } else if (item.value === true) {
+              setUseProbe(true);
+              setUsePrompt(true);
+              setStep('burn_mode');
             } else {
-              setUseProbe(item.value);
+              setUseProbe(false);
+              setUsePrompt(false);
               setStep('burn_mode');
             }
           },
@@ -334,6 +415,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
             if (item.value === 'back') {
               if (reuseMySrt) setStep('reuse_my_prompt');
               else if (reuseSrt) setStep('reuse_prompt');
+              else if (video.hasPrompt) setStep('existing_prompt_choice');
               else setStep('probe_prompt');
             } else {
               setBurnMode(item.value);
@@ -345,6 +427,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
                 reuseSrt,
                 reuseMySrt,
                 useProbe,
+                usePrompt,
                 burnMode: item.value,
                 modeName: 'magic',
               });

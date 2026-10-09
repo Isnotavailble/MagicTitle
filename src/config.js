@@ -100,7 +100,7 @@ export const MODEL_PROFILES = {
     flashAttention: false,
     noFallback: true, // Disables temperature retry loops
     splitOnWord: true, // Splits cue boundaries on exact words (-sow)
-	maxLen: 42 , // Keeps line lengths natural and synchronized (-ml 42)
+	//maxLen: 42 , // Keeps line lengths natural and synchronized (-ml 42)
     wordTimestamps: 0.01, // Exact millisecond token probability threshold (-wt 0.01)
     vad: false, // Enable Silero VAD voice activity detection
     vadThreshold: 0.46, // Sensitive speech threshold

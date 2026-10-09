@@ -182,16 +182,21 @@ export function App() {
         const tempPromptFile = path.join(dir, `_temp_${safeId}_prompt.txt`);
         const userPromptFile = path.join(dir, `${baseName}_prompt.txt`);
         let dynamicPrompt = null;
+        const allowPrompt = jobConfig.usePrompt !== false && (manualPlan ? Boolean(manualPlan.extractMetadata) : true);
 
-        if (fs.existsSync(tempPromptFile)) {
-          dynamicPrompt = fs.readFileSync(tempPromptFile, 'utf-8').trim();
-        } else if (fs.existsSync(userPromptFile)) {
-          dynamicPrompt = fs.readFileSync(userPromptFile, 'utf-8').trim();
+        if (allowPrompt) {
+          if (fs.existsSync(tempPromptFile)) {
+            dynamicPrompt = fs.readFileSync(tempPromptFile, 'utf-8').trim();
+          } else if (fs.existsSync(userPromptFile)) {
+            dynamicPrompt = fs.readFileSync(userPromptFile, 'utf-8').trim();
+          }
         }
 
         if (dynamicPrompt) {
           const preview = dynamicPrompt.length > 70 ? `${dynamicPrompt.slice(0, 70)}...` : dynamicPrompt;
           addStaticLog(`[Dynamic Prompt] Injected context: "${preview}"`);
+        } else {
+          addStaticLog(`[Audio Context] Clean unconditioned transcription (No prompt)`);
         }
 
         await transcribeAudio(

@@ -187,6 +187,7 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
           language,
           reuseSrt: !transcribe && video.hasEnSrt,
           reuseMySrt: !translate && effectiveWorkflow === 'myanmar' && video.hasMySrt,
+          usePrompt: extractMetadata,
           burnMode,
           manualPlan: {
             extractMetadata,
