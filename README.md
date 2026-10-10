@@ -10,6 +10,7 @@ Generate high-accuracy subtitles for video using local **whisper.cpp** and AI tr
   <a href="https://groq.com/"><img src="https://img.shields.io/badge/Groq_Cloud-F55036?style=for-the-badge&logo=fastapi&logoColor=white" alt="Groq Cloud" /></a>
 </p>
 
+![system flow](./assets/demo.png)
 ---
 
 ## 🌟 Overview
@@ -17,7 +18,7 @@ Generate high-accuracy subtitles for video using local **whisper.cpp** and AI tr
 **MagicTitle** is a terminal application designed to break language barriers by turning video dialogue into clean English and conversational Myanmar (Burmese) subtitles. It integrates local speech-to-text (**whisper.cpp**), advanced audio preprocessing (**FFmpeg**), intelligent AI translation (**Google Gemini** & **Groq Cloud**), and complex script font shaping (**HarfBuzz** + **Padauk**) into an elegant terminal interface built with **React** and **Ink**.The goal is to help the subtitling process be faster with minimum resource utilization, while maintaining high accuracy and natural language flow.
 
 
-![App Logo](./assets/systemFlow.png)
+![system flow](./assets/systemFlow.png)
 ---
 
 ## ✨ Key Features
