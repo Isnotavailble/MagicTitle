@@ -134,8 +134,81 @@ DEFAULT_TRANSLATION_SERVICE=google
 WHISPER_THREADS=8
 ```
 
-> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/).This keys are required only when you want to translate with this pipline but you can just copy the generated srt file,and translate it with other ai or edit it. If you finally get what you want,move the .srt or subtitle burned video to your prefered path otherwise it will be overwritten by the next run of the pipline.
+> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/). These keys are required only when you want to translate with this pipeline, but you can just copy the generated `.srt` file and translate or edit it elsewhere. If you get what you want, move the `.srt` or subtitle-burned video to your preferred path, otherwise it will be overwritten by subsequent pipeline runs.
 
+---
+
+### 3. Models & Binaries Setup (Required)
+
+To maintain maximum performance without heavy bundle bloat, external AI models and multimedia binaries are kept portable and resolved dynamically. Follow the steps below to place the required files into the expected directory structure.
+
+#### A. Download Whisper GGML Models
+Download the official GGML models from Hugging Face:
+👉 **[Hugging Face: ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp)**
+
+Place the downloaded model files inside the `models/` directory in the project root:
+
+| Model File | Size | Role | Download Link |
+| :--- | :--- | :--- | :--- |
+| `ggml-small.en.bin` | ~487 MB | **Primary Transcriber** (High accuracy English) | [Download from Hugging Face](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin) |
+| `ggml-tiny.en.bin` | ~77 MB | **Probe Harvester** (Quick dynamic vocabulary probe) | [Download from Hugging Face](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin) |
+| `bd.rnnn` *(Optional/Probe)* | ~1.8 MB | RNNoise vocal isolation model for audio probe filter | Included in repo or standard RNNoise models |
+
+> 📌 **Note:** For multilingual workflows in development, you can also place `ggml-large-v3-turbo-q5_0.bin` or `ggml-base.bin` in `models/`.
+
+---
+
+#### B. Setup Whisper CLI (`whisper-bin-x64/`)
+Download pre-built Windows x64 binaries from [whisper.cpp Releases](https://github.com/ggerganov/whisper.cpp/releases) (e.g., `whisper-bin-x64.zip`):
+1. Extract the archive into the `whisper-bin-x64/` directory.
+2. Ensure `whisper-cli.exe` (and its supporting DLLs) is located at either:
+   - `whisper-bin-x64/Release/whisper-cli.exe` *(default release structure)*
+   - `whisper-bin-x64/whisper-cli.exe`
+
+---
+
+#### C. Setup FFmpeg (`ffmpeg.exe` & `ffprobe.exe`)
+The pipeline uses FFmpeg for audio demuxing, multi-stage filtering, and video burning. The codebase resolves FFmpeg in the following priority order:
+1. `ytdlp/ffmpeg.exe` *(Fastest setup — place directly in `ytdlp/`)*
+2. `ffmpeg-8.1-essentials_build/bin/ffmpeg.exe` (or `ffmpeg-8.1-essentials_build/ffmpeg-8.1-essentials_build/bin/ffmpeg.exe`)
+3. System `PATH` (`ffmpeg`)
+
+**Recommended Setup:**
+- Download the Windows build from [Gyan.dev FFmpeg Essentials](https://www.gyan.dev/ffmpeg/builds/) or extract your existing build.
+- Place `ffmpeg.exe` and `ffprobe.exe` directly into the `ytdlp/` folder (or in `ffmpeg-8.1-essentials_build/bin/`).
+
+---
+
+#### D. Setup yt-dlp (`ytdlp/`)
+To download YouTube or remote videos directly from the CLI:
+- Download `yt-dlp.exe` from [yt-dlp GitHub Releases](https://github.com/yt-dlp/yt-dlp/releases).
+- Place `yt-dlp.exe` inside the `ytdlp/` directory.
+
+---
+
+#### 📂 Expected Folder Structure Check
+Verify your workspace structure matches the following before running:
+
+```text
+Subtitle Maker/
+├── models/
+│   ├── ggml-small.en.bin          # <-- Downloaded from Hugging Face
+│   ├── ggml-tiny.en.bin           # <-- Downloaded from Hugging Face
+│   └── bd.rnnn                    # <-- RNNoise profile
+├── whisper-bin-x64/
+│   └── Release/
+│       ├── whisper-cli.exe        # <-- Extracted whisper.cpp binary
+│       ├── ggml.dll
+│       └── whisper.dll
+├── ytdlp/
+│   ├── ffmpeg.exe                 # <-- Portable FFmpeg
+│   ├── ffprobe.exe                # <-- Portable FFprobe
+│   └── yt-dlp.exe                 # <-- Optional yt-dlp downloader
+├── fonts/
+│   └── Padauk/                    # <-- Bundled Burmese fonts
+├── testContents/                  # <-- Put your input videos here
+└── src/
+```
 
 ---
 
