@@ -23,7 +23,7 @@ temp/
 # Large Video test media (keep sample .srt, exclude heavy mp4s)
 testContents/*.mp4
 testContents/*_subtitled.*
-testContents/*.srt
+
 testContents/*_prompt.txt
 
 # Operating System & IDE Artifacts

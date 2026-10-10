@@ -14,22 +14,10 @@ Generate high-accuracy subtitles for video using local **whisper.cpp** and AI tr
 
 ## 🌟 Overview
 
-**MagicTitle** is a high-performance terminal application designed to break language barriers by turning video dialogue into clean English and conversational Myanmar (Burmese) subtitles. It integrates local speech-to-text (**whisper.cpp**), advanced audio preprocessing (**FFmpeg**), intelligent AI translation (**Google Gemini** & **Groq Cloud**), and complex script font shaping (**HarfBuzz** + **Padauk**) into an elegant terminal interface built with **React** and **Ink**.The goal is to help the subtitling process be faster with minimum resource utilization, while maintaining high accuracy and natural language flow.
-> 📖 **Looking for deep architectural details, parameter tuning, or prompt trade-offs?**  
-> Check out the [Architecture Guide (Architecture.md)](./Architecture.md).
+**MagicTitle** is a terminal application designed to break language barriers by turning video dialogue into clean English and conversational Myanmar (Burmese) subtitles. It integrates local speech-to-text (**whisper.cpp**), advanced audio preprocessing (**FFmpeg**), intelligent AI translation (**Google Gemini** & **Groq Cloud**), and complex script font shaping (**HarfBuzz** + **Padauk**) into an elegant terminal interface built with **React** and **Ink**.The goal is to help the subtitling process be faster with minimum resource utilization, while maintaining high accuracy and natural language flow.
 
-```mermaid
-flowchart TD
-    A["1. Input Video"] --> B["2. Audio Extraction & Speech Filter"]
-    B --> C["3. Local Whisper STT (small.en)"]
-    C --> D["4. NLP Sentence Normalizer"]
-    D --> E["5. English Subtitles (.srt)"]
-    E --> F["6. AI Translation (Gemini / Groq)"]
-    F --> G["7. Burmese Subtitles (_my.srt)"]
-    G --> H["8. Video Render (Padauk + HarfBuzz)"]
-    H --> I["9. Final Subtitled Video (.mp4)"]
-```
 
+![App Logo](./assets/systemFlow.png)
 ---
 
 ## ✨ Key Features
@@ -145,7 +133,8 @@ DEFAULT_TRANSLATION_SERVICE=google
 WHISPER_THREADS=8
 ```
 
-> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/).
+> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/).This keys are required only when you want to translate with this pipline but you can just copy the generated srt file,and translate it with other ai or edit it. If you finally get what you want,move the .srt or subtitle burned video to your prefered path otherwise it will be overwritten by the next run of the pipline.
+
 
 ---
 
@@ -169,6 +158,7 @@ npm start
 
 ## ⚙️ Configuration Options
 
+
 | Option | Environment Variable | Default | Description |
 | :--- | :--- | :--- | :--- |
 | **Gemini API Key** | `GEMINI_API_KEY` | `""` | Google AI Studio API key |
@@ -179,8 +169,9 @@ npm start
 | **Whisper Threads**| `WHISPER_THREADS` | `8` | CPU threads allocated to whisper.cpp |
 
 ---
-
+## Limitations
+ While this tool is designed for fully automated subtitle generation,time stamps of subtitles may not be perfectly aligned with the actual speech in the video or audio because of small.en. mullingual support is not fully implemented yet.The reason why the small.en is mainly used is , it can pefectly recongnize the distortions and background noise in the audio.You can check the detail in the following section.
 ## 📚 Technical Documentation
 
-- **[Architecture.md](./Architecture.md)**: Deep architectural design, model parameter tuning (`small.en` & `tiny.en`), dynamic prompt mechanics, and trade-off analysis.
+- **[Architecture.md](./Architecture.md)**: Architectural design, model parameter tuning (`small.en` & `tiny.en`), dynamic prompt mechanics, and trade-off analysis.
 - **[AGENT.md](./AGENT.md)**: Hard architectural constraints, model invariants, and operational guidelines.
