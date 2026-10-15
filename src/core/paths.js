@@ -26,14 +26,59 @@ export function resolveModelFile(language = 'en') {
   return null;
 }
 
-export function resolvePaths(language = 'en') {
-  // 1. FFmpeg Binary
-  const ffmpegCandidates = [
+/**
+ * Dynamically resolves the FFmpeg executable without hardcoding package version names.
+ * Scans direct, bin/, and any extracted subfolder within PROJECT_ROOT/ffmpeg.
+ * @returns {string} Path to ffmpeg executable or 'ffmpeg' for PATH fallback.
+ */
+export function findFfmpegBinary() {
+  const ffmpegDir = path.join(PROJECT_ROOT, 'ffmpeg');
+
+  if (fs.existsSync(ffmpegDir)) {
+    // 1. Direct inside ffmpeg/
+    const directBin = path.join(ffmpegDir, 'bin', 'ffmpeg.exe');
+    if (fs.existsSync(directBin)) return directBin;
+
+    const directRoot = path.join(ffmpegDir, 'ffmpeg.exe');
+    if (fs.existsSync(directRoot)) return directRoot;
+
+    // 2. Dynamic inspection of ANY extracted folder name (e.g. ffmpeg-8.1-essentials_build, ffmpeg-master, etc.)
+    try {
+      const subEntries = fs.readdirSync(ffmpegDir, { withFileTypes: true });
+      for (const entry of subEntries) {
+        if (entry.isDirectory()) {
+          // Check <folder>/bin/ffmpeg.exe (standard Gyan.dev / official build layout)
+          const nestedBin = path.join(ffmpegDir, entry.name, 'bin', 'ffmpeg.exe');
+          if (fs.existsSync(nestedBin)) return nestedBin;
+
+          // Check nested <folder>/<folder>/bin/ffmpeg.exe (double-nested zip extractions)
+          const doubleNestedBin = path.join(ffmpegDir, entry.name, entry.name, 'bin', 'ffmpeg.exe');
+          if (fs.existsSync(doubleNestedBin)) return doubleNestedBin;
+
+          // Check <folder>/ffmpeg.exe
+          const nestedRoot = path.join(ffmpegDir, entry.name, 'ffmpeg.exe');
+          if (fs.existsSync(nestedRoot)) return nestedRoot;
+        }
+      }
+    } catch {
+      // Ignore read errors and proceed to fallbacks
+    }
+  }
+
+  // 3. Fallbacks for existing workspaces / system PATH
+  const fallbackCandidates = [
     path.join(PROJECT_ROOT, 'ytdlp', 'ffmpeg.exe'),
-    path.join(PROJECT_ROOT, 'ffmpeg-8.1-essentials_build', 'ffmpeg-8.1-essentials_build', 'bin', 'ffmpeg.exe'),
-    path.join(PROJECT_ROOT, 'ffmpeg-8.1-essentials_build', 'bin', 'ffmpeg.exe'),
+    path.join(PROJECT_ROOT, 'bin', 'ffmpeg.exe'),
   ];
-  let ffmpegBin = ffmpegCandidates.find(p => fs.existsSync(p)) || 'ffmpeg';
+  const foundFallback = fallbackCandidates.find(p => fs.existsSync(p));
+  if (foundFallback) return foundFallback;
+
+  return 'ffmpeg';
+}
+
+export function resolvePaths(language = 'en') {
+  // 1. FFmpeg Binary (dynamically resolved)
+  const ffmpegBin = findFfmpegBinary();
 
   // 2. yt-dlp Binary
   const ytdlpCandidates = [

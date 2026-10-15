@@ -66,7 +66,7 @@ Subtitle Maker/
 │   ├── ggml-small.en.bin           # Primary high-accuracy English model
 │   ├── ggml-tiny.en.bin            # Fast vocabulary harvester probe model
 │   └── bd.rnnn                     # Voice isolation model for probe pass
-├── ffmpeg-8.1-essentials_build/    # Portable FFmpeg binaries
+├── ffmpeg/                         # Extracted FFmpeg package (dynamically resolved)
 ├── whisper-bin-x64/                # Portable whisper.cpp Windows binaries
 ├── src/
 │   ├── index.js                    # Terminal bootstrap & banner renderer
@@ -168,14 +168,12 @@ Download pre-built Windows x64 binaries from [whisper.cpp Releases](https://gith
 ---
 
 #### C. Setup FFmpeg (`ffmpeg.exe` & `ffprobe.exe`)
-The pipeline uses FFmpeg for audio demuxing, multi-stage filtering, and video burning. The codebase resolves FFmpeg in the following priority order:
-1. `ytdlp/ffmpeg.exe` *(Fastest setup — place directly in `ytdlp/`)*
-2. `ffmpeg-8.1-essentials_build/bin/ffmpeg.exe` (or `ffmpeg-8.1-essentials_build/ffmpeg-8.1-essentials_build/bin/ffmpeg.exe`)
-3. System `PATH` (`ffmpeg`)
+The pipeline uses FFmpeg for audio demuxing, multi-stage filtering, and video burning. The codebase **dynamically discovers** FFmpeg so you never need to rename or worry about version numbers.
 
-**Recommended Setup:**
-- Download the Windows build from [Gyan.dev FFmpeg Essentials](https://www.gyan.dev/ffmpeg/builds/) or extract your existing build.
-- Place `ffmpeg.exe` and `ffprobe.exe` directly into the `ytdlp/` folder (or in `ffmpeg-8.1-essentials_build/bin/`).
+**Setup Instructions:**
+1. Download any Windows build (Essentials or Full) from [Gyan.dev FFmpeg Builds](https://www.gyan.dev/ffmpeg/builds/) (e.g., `ffmpeg-release-essentials.zip`).
+2. Simply extract the archive into the `ffmpeg/` directory.
+3. The application dynamically scans `ffmpeg/`, automatically finding `ffmpeg.exe` and `ffprobe.exe` whether they are inside an extracted folder (e.g. `ffmpeg/ffmpeg-8.1-essentials_build/bin/`), in `ffmpeg/bin/`, or directly in `ffmpeg/`.
 
 ---
 
@@ -195,15 +193,18 @@ Subtitle Maker/
 │   ├── ggml-small.en.bin          # <-- Downloaded from Hugging Face
 │   ├── ggml-tiny.en.bin           # <-- Downloaded from Hugging Face
 │   └── bd.rnnn                    # <-- RNNoise profile
+├── ffmpeg/
+│   └── <any-ffmpeg-build>/        # <-- Extracted FFmpeg package (dynamically resolved)
+│       └── bin/
+│           ├── ffmpeg.exe
+│           └── ffprobe.exe
 ├── whisper-bin-x64/
 │   └── Release/
 │       ├── whisper-cli.exe        # <-- Extracted whisper.cpp binary
 │       ├── ggml.dll
 │       └── whisper.dll
 ├── ytdlp/
-│   ├── ffmpeg.exe                 # <-- Portable FFmpeg
-│   ├── ffprobe.exe                # <-- Portable FFprobe
-│   └── yt-dlp.exe                 # <-- Optional yt-dlp downloader
+│   └── yt-dlp.exe                 # <-- Standalone yt-dlp binary
 ├── fonts/
 │   └── Padauk/                    # <-- Bundled Burmese fonts
 ├── testContents/                  # <-- Put your input videos here

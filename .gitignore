@@ -8,6 +8,8 @@ npm-debug.log*
 .env.*.local
 
 # Precompiled Binaries & Large Builds (>100MB)
+ffmpeg/*
+!ffmpeg/.gitkeep
 ffmpeg-8.1-essentials_build/
 whisper-bin-x64/
 installers/
@@ -21,10 +23,7 @@ models/*.bin
 temp/
 
 # Large Video test media (keep sample .srt, exclude heavy mp4s)
-testContents/*.mp4
-testContents/*_subtitled.*
-
-testContents/*_prompt.txt
+testContents/*
 
 # Operating System & IDE Artifacts
 .DS_Store
