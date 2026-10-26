@@ -60,7 +60,7 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
       h(
         Box,
         { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
-        h(Text, { bold: true, color: 'cyan', marginBottom: 1 }, 'Manual Planner - Select Target Video:'),
+        h(Text, { bold: true, color: 'white', marginBottom: 1 }, 'Select Target Video:'),
         h(SelectInput, {
           items,
           indicatorComponent: GlowingIndicator,
@@ -69,24 +69,20 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
             if (item.value === 'back') onBack();
             else if (item.value === 'download_url') setStep('download_url');
             else {
-              const selectedVid = item.value;
-              setVideo(selectedVid);
-              // If English SRT already exists, default extract & transcribe to false
-              if (selectedVid.hasEnSrt) {
+              setVideo(item.value);
+              if (item.value.hasEnSrt) {
                 setExtractAudio(false);
                 setTranscribe(false);
-              }
-              // If Myanmar SRT exists, default translate to false
-              if (selectedVid.hasMySrt) {
-                setTranslate(false);
-                setTargetSubtitleLanguage('myanmar');
+              } else {
+                setExtractAudio(true);
+                setTranscribe(true);
               }
               setStep('steps');
             }
           },
         })
       ),
-      h(FooterBar, { hints: '[↑/↓] Choose Video  •  [ENTER] Customize Pipeline Steps' })
+      h(FooterBar, { hints: '[↑/↓] Select Video  •  [ENTER] Confirm  •  [Ctrl+C] Quit' })
     );
   }
 
@@ -105,7 +101,7 @@ export function ManualPlannerView({ preselectedVideo, onStartJob, onBack }) {
       },
       {
         key: 'step_toggle_transcribe',
-        label: `${transcribe ? '[✓]' : '[ ]'} 2. Transcribe Audio (whisper.cpp ggml-small-q5_1)`,
+        label: `${transcribe ? '[✓]' : '[ ]'} 2. Transcribe Audio (Active Whisper Model)`,
         value: 'toggle_transcribe',
       },
     ];

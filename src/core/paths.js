@@ -18,6 +18,7 @@ export function resolveModelFile(language = 'en') {
   const modelsDir = path.join(PROJECT_ROOT, 'models');
   // Check available models from MODEL_PROFILES
   for (const profile of Object.values(MODEL_PROFILES)) {
+    if (!profile?.fileName) continue;
     const p = path.join(modelsDir, profile.fileName);
     if (fs.existsSync(p)) {
       return p;

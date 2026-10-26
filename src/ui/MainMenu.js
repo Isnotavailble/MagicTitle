@@ -54,7 +54,7 @@ export function MainMenu({ onSelect }) {
     },
     {
       key: 'menu_provider_select',
-      label: '5. Switch AI Provider',
+      label: '5. Manage Translation Model Provider',
       value: 'providerSelect',
       hint: 'Toggle active LLM (Google Gemini <-> Groq)',
     },

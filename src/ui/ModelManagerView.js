@@ -2,7 +2,39 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { getAvailableModels, isModelActive, getActiveModel, setActiveModel, deactivateModel } from '../core/modelManager.js';
-import { GlowingIndicator, GlowingItem, FooterBar } from './GlowingIndicator.js';
+import { GlowingIndicator, FooterBar } from './GlowingIndicator.js';
+
+function ModelSelectRow({ isSelected = false, label, value }) {
+  const h = React.createElement;
+
+  if (value && typeof value === 'object' && value.model) {
+    const m = value.model;
+    const tag = m.isCloud ? '[Cloud]' : '[Local]';
+    const tagColor = m.isCloud ? 'yellowBright' : 'yellow';
+
+    return h(
+      Box,
+      { flexDirection: 'row' },
+      h(
+        Box,
+        { width: 9 },
+        h(Text, { color: tagColor, bold: true }, tag)
+      ),
+      h(
+        Text,
+        { color: isSelected ? 'cyanBright' : 'white', bold: isSelected },
+        label
+      )
+    );
+  }
+
+  // Actions (Deactivate, Back)
+  return h(
+    Text,
+    { color: isSelected ? 'cyanBright' : 'white', bold: isSelected },
+    label
+  );
+}
 
 export function ModelManagerView({ onBack, requiredWarning = false }) {
   const [models, setModels] = useState(() => getAvailableModels());
@@ -47,11 +79,15 @@ export function ModelManagerView({ onBack, requiredWarning = false }) {
       return;
     }
 
-    const targetModel = models.find(m => m.id === item.value);
+    const targetModel = item.value?.model || models.find(m => m.id === item.value);
     if (!targetModel) return;
 
     if (!targetModel.isAvailable) {
-      setStatusMessage(`Model file "${targetModel.fileName}" not found in models/ folder.`);
+      if (targetModel.isCloud) {
+        setStatusMessage('GROQ_API_KEY secret not found in .env file.');
+      } else {
+        setStatusMessage(`Model file "${targetModel.fileName}" not found in models/ folder.`);
+      }
       return;
     }
 
@@ -69,17 +105,23 @@ export function ModelManagerView({ onBack, requiredWarning = false }) {
     }
   };
 
+  // Group: Cloud first, then Local models
+  const cloudModels = models.filter(m => m.isCloud);
+  const localModels = models.filter(m => !m.isCloud);
+  const sortedModels = [...cloudModels, ...localModels];
+
   const items = [
-    ...models.map(m => {
+    ...sortedModels.map(m => {
       let badge = '';
       if (m.isActive) badge = ' [ACTIVE]';
+      else if (m.isCloud) badge = m.isAvailable ? ' [Cloud API]' : ' [KEY MISSING]';
       else if (m.isAvailable) badge = ` [${m.sizeMb} MB]`;
       else badge = ' [NOT FOUND IN models/]';
 
       return {
         key: `mod_${m.id}`,
         label: `${m.displayName}${badge}`,
-        value: m.id,
+        value: { model: m },
       };
     }),
     ...(currentActive ? [{
@@ -123,7 +165,7 @@ export function ModelManagerView({ onBack, requiredWarning = false }) {
           ? h(Box, { marginTop: 0 }, h(Text, { color: 'gray', italic: true }, `  ↳ Preset: ${currentActive.description}`))
           : null
       ),
-      h(SelectInput, { items, indicatorComponent: GlowingIndicator, itemComponent: GlowingItem, onSelect: handleSelect }),
+      h(SelectInput, { items, indicatorComponent: GlowingIndicator, itemComponent: ModelSelectRow, onSelect: handleSelect }),
       statusMessage
         ? h(
             Box,

@@ -1,5 +1,5 @@
 # 🧙‍♂️ MagicTitle 
-Generate high-accuracy subtitles for video using local **whisper.cpp** and AI translation (**Google Gemini** & **Groq Cloud**) with flawless Myanmar font shaping (**Padauk** + **HarfBuzz**).
+Generate high-accuracy subtitles for video using local **whisper.cpp**, cloud **Groq Whisper**, and AI translation (**Google Gemini** & **Groq Cloud**) with flawless Myanmar font shaping (**Padauk** + **HarfBuzz**).
 
 <p align="left">
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" /></a>
@@ -23,11 +23,12 @@ Generate high-accuracy subtitles for video using local **whisper.cpp** and AI tr
 
 ## ✨ Key Features
 
-### 🎙️ 1. High-Accuracy Local Speech Recognition
-- **Engineered for `small.en` + `tiny.en`**: Fast, highly effective local transcription on CPU with zero cloud costs or data leaks.
+### 🎙️ 1. High-Accuracy Speech Recognition (Local & Cloud)
+- **Local Transcriber (`small.en` + `tiny.en`)**: Fast, cost-free local transcription running directly on CPU via **whisper.cpp** with zero cloud costs or data leaks.
+- **⚡ Cloud Transcriber (Groq Cloud `whisper-large-v3-turbo`)**: Ultra-fast cloud transcription powered by Groq LPU inference. Handles long movies through automatic timeline-accurate audio chunking (≤19MB per chunk) with strict 20 RPM rate limit protection and zero local CPU load.
 - **Dynamic Vocabulary Harvesting**: Optional fast probe pass with `tiny.en` to extract proper nouns, character names, and domain terms for maximum spelling precision.
-- **Full Prompt Flexibility**: Choose to **reuse an existing prompt**, **re-run a fresh probe**, or **skip entirely** to transcribe with clean, unconditioned audio context.
-- **Battle-Tested Audio Filter**: Preserves vocal dynamics while attenuating rumble and high-frequency noise with dynamic audio leveling (`dynaudnorm`).
+- **Full Prompt Flexibility**: Choose to **reuse an existing prompt**, **re-run a fresh probe**, or **skip entirely** (automatically routes clean unconditioned audio context to the cloud model to eliminate intro hallucinations).
+- **Tailored Audio Filters**: Battle-tested leveling (`dynaudnorm`) for local models, and transparent acoustic noise gating (`agate`) for the cloud model.
 - *(Note: Multi-language speech recognition is currently experimental / in progress)*.
 
 ### 🌐 2. Spoken Myanmar Unicode Translation (Gemini & Groq)
@@ -47,7 +48,8 @@ Generate high-accuracy subtitles for video using local **whisper.cpp** and AI tr
 - **⚡ Magic Mode**: End-to-end automated pipeline with smart detection to reuse existing `.srt` and prompt files.
 - **🛠️ Manual Planner**: Fine-grained modular control to toggle individual steps (Extract Audio, Probe, Transcribe, Translate, Render).
 - **📁 File Manager & Dashboard**: Scans directories, shows status badges (`[EN: READY]`, `[MY: READY]`, `[PROMPT: READY]`, `[SUBTITLED]`), and features a built-in paginated **SRT Viewer**.
-- **🔄 Instant Provider Switcher**: Toggle between Google Gemini and Groq on the fly.
+- **🧠 Manage Whisper Models**: Switch between local GGML models and Groq Cloud Whisper with clear `[Local]` and `[Cloud]` categorization tags.
+- **🔄 Manage Translation Providers**: Toggle between Google Gemini and Groq on the fly.
 
 ---
 
@@ -125,7 +127,7 @@ Create a `.env` file in the root directory:
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.5-flash-lite
 
-# Groq Configuration
+# Groq Configuration (Powers both Groq Translation and Groq Cloud Whisper STT)
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=qwen/qwen3.8-27b
 
@@ -134,7 +136,7 @@ DEFAULT_TRANSLATION_SERVICE=google
 WHISPER_THREADS=8
 ```
 
-> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/). These keys are required only when you want to translate with this pipeline, but you can just copy the generated `.srt` file and translate or edit it elsewhere. If you get what you want, move the `.srt` or subtitle-burned video to your preferred path, otherwise it will be overwritten by subsequent pipeline runs.
+> 💡 **Tip:** You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) and a Groq API key from [Groq Console](https://console.groq.com/). Setting `GROQ_API_KEY` unlocks both **Groq Cloud AI Translation** and **Groq Cloud Whisper (`whisper-large-v3-turbo`)**, which transcribes audio without needing local GGML model downloads. If you only want to generate English subtitles with the local model, API keys are completely optional.
 
 ---
 
@@ -155,6 +157,8 @@ Place the downloaded model files inside the `models/` directory in the project r
 | `bd.rnnn` *(Optional/Probe)* | ~1.8 MB | RNNoise vocal isolation model for audio probe filter | Included in repo or standard RNNoise models |
 
 > 📌 **Note:** For multilingual workflows in development, you can also place `ggml-large-v3-turbo-q5_0.bin` or `ggml-base.bin` in `models/`.
+>
+> ⚡ **Cloud Alternative (Zero Model Download):** If you configure `GROQ_API_KEY` in `.env`, you can switch to **Groq Cloud (Whisper Large v3 Turbo)** directly from the **Manage Whisper Models** menu. Cloud transcription runs remotely on Groq LPUs without requiring any local model files or CPU overhead.
 
 ---
 

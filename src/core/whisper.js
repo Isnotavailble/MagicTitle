@@ -33,11 +33,18 @@ export function transcribeAudio(wavPath, outputPrefix, optionsOrProgress, onProg
     }
     activeModel = getActiveModel();
   } else if (!activeModel.fullPath) {
-    const modelsDir = path.join(PROJECT_ROOT, 'models');
-    activeModel = {
-      ...activeModel,
-      fullPath: path.join(modelsDir, activeModel.fileName),
-    };
+    if (activeModel.isCloud) {
+      activeModel = {
+        ...activeModel,
+        fullPath: 'Groq Cloud API',
+      };
+    } else {
+      const modelsDir = path.join(PROJECT_ROOT, 'models');
+      activeModel = {
+        ...activeModel,
+        fullPath: activeModel.fileName ? path.join(modelsDir, activeModel.fileName) : null,
+      };
+    }
   }
 
   const { whisperBin, vadModelFile } = resolvePaths(language);

@@ -9,6 +9,28 @@ export const PROJECT_ROOT = path.resolve(__dirname, '..');
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 
 export const MODEL_PROFILES = {
+  'groq-cloud-turbo': {
+    id: 'groq-cloud-turbo',
+    displayName: 'Groq Cloud (Whisper Large v3 Turbo)',
+    isCloud: true,
+    modelName: 'whisper-large-v3-turbo',
+    temperature: 0.2,
+
+    audioFilter: 'agate=threshold=0.03:attack=20:release=250',
+
+    maxChunkSizeBytes: 19 * 1024 * 1024, // 19 MB strict ceiling
+    chunkDurationSec: 500, // 500s (~16 MB per chunk)
+    interChunkDelayMs: 600, // Polite pause between chunks to respect 20 RPM
+    maxRetries: 3,
+    useJsonOutput: true,
+
+    maxSilenceGapMs: 500,
+    minCueDurationMs: 1200,
+    maxCueDurationMs: 7000,
+    maxCharsPerLine: 42,
+    
+	description: 'Ultra-fast Groq Cloud API with large-v3-turbo, battle-tested audio leveling & full-sentence normalizer',
+  },
   'large-turbo-q5': {
     id: 'large-turbo-q5',
     displayName: 'Large v3 Turbo (Q5_0)',
@@ -162,6 +184,13 @@ export const CONFIG = {
     maxTokens: 8192,
   },
   defaultService: process.env.DEFAULT_TRANSLATION_SERVICE || 'google',
+  cloudWhisper: {
+    model: 'whisper-large-v3-turbo',
+    maxChunkSizeBytes: 19 * 1024 * 1024,
+    chunkDurationSec: 500,
+    interChunkDelayMs: 600,
+    maxRetries: 3,
+  },
   whisper: {
     threads: parseInt(process.env.WHISPER_THREADS || '6', 10),
     beamSize: 2,

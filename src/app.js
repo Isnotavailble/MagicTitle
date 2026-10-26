@@ -15,13 +15,14 @@ import { ModelManagerView } from './ui/ModelManagerView.js';
 
 import { extractAudio, burnEnglishSubtitles, burnMyanmarSubtitles, muxSoftSubtitles } from './core/ffmpeg.js';
 import { transcribeAudio } from './core/whisper.js';
+import { transcribeAudioGroqCloud } from './services/groqWhisperService.js';
 import { runMetadataProbe } from './core/probeManager.js';
 import { translateSrtFile } from './services/translator.js';
 import { readSrtFile, writeSrtFile, sanitizeSrtEntries } from './core/srt.js';
 import { normalizeSrtFromJson } from './core/srtNormalizer.js';
 import { generateSafeHash, resolvePaths } from './core/paths.js';
 import { isModelActive, getActiveModel } from './core/modelManager.js';
-import { CONFIG } from './config.js';
+import { CONFIG, MODEL_PROFILES } from './config.js';
 
 let logIdCounter = 0;
 
@@ -60,13 +61,14 @@ export function App() {
     const shouldTranslate = manualPlan ? manualPlan.translate : isMyanmar;
     const shouldRender = manualPlan ? manualPlan.renderVideo : true;
 
-    // Guard: ensure Whisper model is active in state if transcription is required
+    // Guard: ensure a model is active in state if transcription is required
     if (shouldTranscribe && !isModelActive()) {
       setScreen('modelManagerRequired');
       return;
     }
 
     const activeModel = getActiveModel();
+    const isCloud = Boolean(activeModel?.isCloud);
     const modelName = activeModel?.displayName || 'Whisper';
     const isLargeTurbo = Boolean(activeModel?.id?.includes('turbo') || activeModel?.id?.includes('large'));
 
@@ -161,7 +163,12 @@ export function App() {
         const sTime = Date.now();
         addStaticLog(`Extracting audio with speech bandpass filter (80-7500Hz)${isLargeTurbo ? '' : ' & dynaudnorm'}...`);
 
-        await extractAudio(video.fullPath, safeTempWav, { language, isLargeTurbo });
+        await extractAudio(video.fullPath, safeTempWav, { 
+          language, 
+          isLargeTurbo,
+          modelProfile: activeModel,
+          audioFilter: activeModel?.audioFilter,
+        });
 
         const dSec = Math.max(1, Math.floor((Date.now() - sTime) / 1000));
         addStaticLog(`Audio extracted & normalized (16kHz PCM): ${path.basename(safeTempWav)}`);
@@ -192,6 +199,13 @@ export function App() {
           }
         }
 
+        // When user rejects prompt/probe (or no prompt file exists):
+        // - Cloud model: strictly null / unconditioned (no prompt passed to Groq)
+        // - Local models: inject default grammar prompt for proper punctuation and capitalization
+        if (!dynamicPrompt && !isCloud) {
+          dynamicPrompt = "Transcribe the dialogue with clear grammar, proper punctuation, and capitalization.";
+        }
+
         if (dynamicPrompt) {
           const preview = dynamicPrompt.length > 70 ? `${dynamicPrompt.slice(0, 70)}...` : dynamicPrompt;
           addStaticLog(`[Dynamic Prompt] Injected context: "${preview}"`);
@@ -199,30 +213,45 @@ export function App() {
           addStaticLog(`[Audio Context] Clean unconditioned transcription (No prompt)`);
         }
 
-        await transcribeAudio(
-          safeTempWav,
-          safeTempWhisperPrefix,
-          { language, prompt: dynamicPrompt, modelProfile: activeModel },
-          progress => {
-            if (progress?.cue) {
-              addStaticLog(progress.cue);
+        if (activeModel?.isCloud) {
+          addStaticLog(`[Engine: Cloud] Transcribing via Groq Whisper (${activeModel?.modelName || 'whisper-large-v3-turbo'})...`);
+          await transcribeAudioGroqCloud(
+            safeTempWav,
+            enSrt,
+            { language, prompt: dynamicPrompt, modelProfile: activeModel },
+            progress => {
+              if (progress?.status) {
+                addStaticLog(progress.status);
+              }
             }
-          }
-        );
+          );
+        } else {
+          addStaticLog(`[Engine: Local] Transcribing via whisper.cpp [${modelLabel}]...`);
+          await transcribeAudio(
+            safeTempWav,
+            safeTempWhisperPrefix,
+            { language, prompt: dynamicPrompt, modelProfile: activeModel },
+            progress => {
+              if (progress?.cue) {
+                addStaticLog(progress.cue);
+              }
+            }
+          );
 
-        // Sanitize and save generated subtitles
-        if (activeModel?.useJsonOutput && fs.existsSync(safeTempWhisperJson)) {
-          addStaticLog(`Normalizing full sentences & gaps via srtNormalizer (compromise NLP)...`);
-          normalizeSrtFromJson(safeTempWhisperJson, enSrt, activeModel);
-          try { fs.unlinkSync(safeTempWhisperJson); } catch {}
-        } else if (fs.existsSync(safeTempWhisperSrt)) {
-          const rawCues = readSrtFile(safeTempWhisperSrt);
-          const sanitizedCues = sanitizeSrtEntries(rawCues);
-          writeSrtFile(enSrt, sanitizedCues);
-          try { fs.unlinkSync(safeTempWhisperSrt); } catch {}
+          // Sanitize and save generated subtitles
+          if (activeModel?.useJsonOutput && fs.existsSync(safeTempWhisperJson)) {
+            addStaticLog(`Normalizing full sentences & gaps via srtNormalizer (compromise NLP)...`);
+            normalizeSrtFromJson(safeTempWhisperJson, enSrt, activeModel);
+            try { fs.unlinkSync(safeTempWhisperJson); } catch {}
+          } else if (fs.existsSync(safeTempWhisperSrt)) {
+            const rawCues = readSrtFile(safeTempWhisperSrt);
+            const sanitizedCues = sanitizeSrtEntries(rawCues);
+            writeSrtFile(enSrt, sanitizedCues);
+            try { fs.unlinkSync(safeTempWhisperSrt); } catch {}
+          }
         }
 
-        if (fs.existsSync(safeTempWav)) {
+                if (fs.existsSync(safeTempWav)) {
           try { fs.unlinkSync(safeTempWav); } catch {}
         }
 

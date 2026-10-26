@@ -52,7 +52,7 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
       h(
         Box,
         { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
-        h(Text, { bold: true, color: 'cyan', marginBottom: 1 }, 'Magic Mode - Select Target Video:'),
+        h(Text, { bold: true, color: 'white', marginBottom: 1 }, 'Select Target Video:'),
         h(SelectInput, {
           items,
           indicatorComponent: GlowingIndicator,
@@ -67,26 +67,26 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
           },
         })
       ),
-      h(FooterBar, { hints: '[↑/↓] Choose Video  •  [ENTER] Select Workflow  •  [Ctrl+C] Quit' })
+      h(FooterBar, { hints: '[↑/↓] Select Video  •  [ENTER] Confirm  •  [Ctrl+C] Quit' })
     );
   }
 
-  // STEP 2: Choose Workflow & Language
+  // STEP 2: Choose Workflow
   if (step === 'workflow') {
     const items = [
       {
-        key: 'wf_quick_en',
-        label: 'Quick English Subtitles',
+        key: 'wf_en',
+        label: '1. Quick English Subtitles (Transcribe Speech -> English SRT)',
         value: { workflow: 'english', language: 'en' },
       },
       {
-        key: 'wf_myanmar_en',
-        label: 'English to Burmese Subtitles (Speech: English [Default])',
+        key: 'wf_my',
+        label: '2. English to Burmese Subtitles (Speech -> Translate -> Burmese SRT)',
         value: { workflow: 'myanmar', language: 'en' },
       },
       {
-        key: 'wf_myanmar_dynamic',
-        label: 'Dynamic Language to Burmese Subtitles (Auto-detect speech)',
+        key: 'wf_auto_my',
+        label: '3. Multi-language to Burmese (Auto Detect Speech -> Burmese SRT)',
         value: { workflow: 'myanmar', language: 'auto' },
       },
       {
@@ -102,10 +102,10 @@ export function MagicModeView({ preselectedVideo, onStartJob, onBack }) {
       h(
         Box,
         { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', padding: 1 },
+        h(Text, { bold: true, color: 'white', marginBottom: 1 }, `Selected Video: ${video.fileName}`),
         h(
           Box,
           { marginBottom: 1 },
-          h(Text, { bold: true, color: 'white' }, `Selected Video: ${video.fileName} `),
           h(Text, { color: video.hasEnSrt ? 'greenBright' : 'gray', bold: video.hasEnSrt }, video.hasEnSrt ? '[EN: READY] ' : '[EN: --   ] '),
           h(Text, { color: video.hasMySrt ? 'magentaBright' : 'gray', bold: video.hasMySrt }, video.hasMySrt ? '[MY: READY] ' : '[MY: --   ] '),
           h(Text, { color: video.hasPrompt ? 'yellowBright' : 'gray', bold: video.hasPrompt }, video.hasPrompt ? '[PROMPT: READY]' : '[PROMPT: --   ]')
