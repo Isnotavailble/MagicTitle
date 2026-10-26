@@ -50,15 +50,15 @@ export function App() {
 
   // Run the pipeline job (GitHub Actions chronological order: Step Header -> Logs -> Complete)
   const startJob = async (jobConfig) => {
-    const { video, workflow, reuseSrt, burnMode, manualPlan, language = 'en' } = jobConfig;
+    const { video, workflow, reuseSrt, reuseMySrt, burnMode, manualPlan, language = 'en' } = jobConfig;
     const isMyanmar = workflow === 'myanmar';
     const totalStartTime = Date.now();
 
     // Determine required steps
     const shouldProbe = manualPlan ? Boolean(manualPlan.extractMetadata) : (jobConfig.useProbe !== undefined ? Boolean(jobConfig.useProbe) : false);
-    const shouldExtract = manualPlan ? manualPlan.extractAudio : !reuseSrt;
-    const shouldTranscribe = manualPlan ? manualPlan.transcribe : !reuseSrt;
-    const shouldTranslate = manualPlan ? manualPlan.translate : isMyanmar;
+    const shouldExtract = manualPlan ? manualPlan.extractAudio : (!reuseSrt && !reuseMySrt);
+    const shouldTranscribe = manualPlan ? manualPlan.transcribe : (!reuseSrt && !reuseMySrt);
+    const shouldTranslate = manualPlan ? manualPlan.translate : (isMyanmar && !reuseMySrt);
     const shouldRender = manualPlan ? manualPlan.renderVideo : true;
 
     // Guard: ensure a model is active in state if transcription is required
@@ -270,8 +270,24 @@ export function App() {
         const sTime = Date.now();
         addStaticLog(`Connecting to ${currentProvider.toUpperCase()} (${currentProvider === 'groq' ? CONFIG.groq.model : CONFIG.gemini.model})...`);
 
+        // Check for character & scene context prompt from probe or file
+        const tempPromptFile = path.join(dir, `_temp_${safeId}_prompt.txt`);
+        const userPromptFile = path.join(dir, `${baseName}_prompt.txt`);
+        let contextPrompt = null;
+        if (fs.existsSync(tempPromptFile)) {
+          contextPrompt = fs.readFileSync(tempPromptFile, 'utf-8').trim();
+        } else if (fs.existsSync(userPromptFile)) {
+          contextPrompt = fs.readFileSync(userPromptFile, 'utf-8').trim();
+        }
+
+        if (contextPrompt) {
+          const preview = contextPrompt.length > 70 ? `${contextPrompt.slice(0, 70)}...` : contextPrompt;
+          addStaticLog(`[Translation Context] Injected character metadata for pronoun precision: "${preview}"`);
+        }
+
         await translateSrtFile(enSrt, mySrt, {
           provider: currentProvider,
+          contextPrompt,
           onLog: msg => addStaticLog(msg),
         });
 

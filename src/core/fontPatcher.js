@@ -15,7 +15,7 @@ function srtTimeToAssTime(srtTime) {
   return clean;
 }
 
-export function generatePadaukAss(cues, fontName = 'Padauk') {
+export function generatePadaukAss(cues, fontName = 'Padauk', fontSize = 58) {
   const header = `[Script Info]
 Title: MagicTitle Generated Subtitles
 ScriptType: v4.00+
@@ -27,7 +27,7 @@ PlayResY: 1080
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3.0,1.5,2,40,40,40,1
+Style: Default,${fontName},${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3.0,1.5,2,40,40,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -44,7 +44,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return header + dialogueLines.join('\n') + '\n';
 }
 
-export function writePadaukAssFile(filePath, cues, fontName = 'Padauk') {
-  const content = generatePadaukAss(cues, fontName);
+export function writePadaukAssFile(filePath, cues, fontName = 'Padauk', fontSize = 58) {
+  const content = generatePadaukAss(cues, fontName, fontSize);
   fs.writeFileSync(filePath, content, 'utf-8');
 }

@@ -3,11 +3,45 @@ import { translateWithGroq } from './groqService.js';
 import { parseSrt, stringifySrt, readSrtFile, writeSrtFile } from '../core/srt.js';
 import { CONFIG } from '../config.js';
 
+export function buildSystemPrompt(contextPrompt = null) {
+  let contextSection = '';
+  if (contextPrompt && typeof contextPrompt === 'string' && contextPrompt.trim()) {
+    contextSection = `
+Scene & Character Context:
+${contextPrompt.trim()}
+
+CRITICAL BURMESE PRONOUN & GENDER RULES:
+- Use the character context above to identify who is speaking and who is addressed in the dialogue.
+- Use natural spoken Burmese pronouns matching each character's gender, role, and relationship:
+  * Female characters (e.g. Diana, women): Use feminine pronouns/forms (ကျွန်မ, ငါ, ရှင်, ရှင့်). Never assign male pronouns (ကျွန်တော်) or male particles (ဗျာ, ခင်ဗျ) to female speakers!
+  * Male characters (e.g. Bruce/Batman, men): Use masculine pronouns/forms (ကျွန်တော်, ငါ, ခင်ဗျား, မင်း, သူ, ဗျ, ဗျာ).
+  * Royal & Respect honorifics: When addressing a princess or royal warrior (e.g. Princess Diana), use appropriate respectful titles (မင်းသမီး) instead of generic or disrespectful forms.
+`;
+  }
+
+  return `You are a professional film subtitle translator.
+The input consists of indexed lines formatted as: <index>|||<English dialogue>
+You should not change the sequence number all the sequence index should match even when the sentence is break into words. You should respect the <index>|||<English dialogue> sequences of original file.
+Task: Translate every single line into natural conversational spoken Myanmar Unicode (စကားပြောစစ်စစ်).
+${contextSection}
+Strict Rules:
+1. Maintain the exact line format: <index>|||<Myanmar translated text>
+2. Never drop or modify the numeric index or the '|||' separator.
+3. Avoid formal/bookish Burmese (never use သည်, ၏, ၌, ပါသည်). Use spoken colloquial endings (တယ်, ပါ, ဖြစ်လို့လေ, ဗျာ, ရှင်, ရှင့်).
+4. Script Purity: Use Myanmar Unicode (English words/acronyms are allowed when appropriate). Never insert Chinese (漢字), Thai, Hindi, or other non-Myanmar scripts.
+5. Do NOT omit, skip, or summarize any index. Every single provided index MUST be returned in order.
+6. Output clean plain text only. Do not add markdown fences (no \`\`\`), conversational intros, or notes.`;
+}
+
+export const SWIFT_SYSTEM_PROMPT = buildSystemPrompt();
+
 export async function translateSrtFile(inputSrtPath, outputSrtPath, options = {}) {
   const provider = options.provider || CONFIG.defaultService || 'google';
   const batchSize = options.batchSize || CONFIG.batchSize || 45;
+  const contextPrompt = options.contextPrompt || null;
   const onProgress = options.onProgress || null;
   const onLog = options.onLog || (() => {});
+  const systemPrompt = buildSystemPrompt(contextPrompt);
 
   onLog(`Reading input subtitles from ${inputSrtPath}...`);
   const entries = readSrtFile(inputSrtPath);
@@ -51,9 +85,9 @@ export async function translateSrtFile(inputSrtPath, outputSrtPath, options = {}
       attempts++;
       try {
         if (provider === 'groq') {
-          batchResult = await translateWithGroq(requestBody, options.apiKey);
+          batchResult = await translateWithGroq(requestBody, options.apiKey, systemPrompt);
         } else {
-          batchResult = await translateWithGoogle(requestBody, options.apiKey);
+          batchResult = await translateWithGoogle(requestBody, options.apiKey, systemPrompt);
         }
         success = true;
         onLog(`[Batch ${batchNum}/${totalBatches}] Received translation from ${provider.toUpperCase()}`);

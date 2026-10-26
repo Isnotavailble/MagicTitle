@@ -1,21 +1,13 @@
 import { GoogleGenAI } from '@google/genai';
 import { CONFIG } from '../config.js';
 
-export const SWIFT_SYSTEM_PROMPT = 
-`You are a professional film subtitle translator.
-The input consists of indexed lines formatted as: <index>|||<English dialogue>
-You should not change the sequence number all the sequence index should match even when the sentence is break into words. You should respect the <index>|||<English dialogue> sequences of original file.
-Task: Translate every single line into natural conversational spoken Myanmar Unicode (စကားပြောစစ်စစ်).
-Strict Rules:
-1. Maintain the exact line format: <index>|||<Myanmar translated text>
-2. Never drop or modify the numeric index or the '|||' separator.
-3. Avoid formal/bookish Burmese (never use သည်, ၏, ၌, ပါသည်). Use spoken colloquial endings (တယ်, ပါ, ဖြစ်လို့လေ, ဗျာ).
-4. Do NOT omit, skip, or summarize any index. Every single provided index MUST be returned in order.
-5. Output clean plain text only. Do not add markdown fences (no \`\`\`), conversational intros, or notes.`;
+const DEFAULT_TRANSLATE_PROMPT =
+  'You are a professional film subtitle translator. Translate every single line into natural conversational spoken Myanmar Unicode (စကားပြောစစ်စစ်). Maintain the exact line format: <index>|||<Myanmar translated text>. Avoid formal/bookish Burmese. English words and acronyms are allowed when appropriate, but never insert Chinese, Thai, Hindi, or other foreign scripts.';
 
-export async function translateWithGoogle(formattedInput, customKey = null) {
+export async function translateWithGoogle(formattedInput, customKey = null, systemPrompt = null) {
   const apiKey = (customKey || CONFIG.gemini.apiKey || '').trim();
   const modelName = CONFIG.gemini.model || 'gemini-2.5-flash-lite';
+  const systemInstruction = systemPrompt || DEFAULT_TRANSLATE_PROMPT;
 
   if (!apiKey) {
     throw new Error('Google Gemini API Key is missing. Please set GEMINI_API_KEY in .env');
@@ -28,7 +20,7 @@ export async function translateWithGoogle(formattedInput, customKey = null) {
       model: modelName,
       contents: formattedInput,
       config: {
-        systemInstruction: SWIFT_SYSTEM_PROMPT,
+        systemInstruction,
         temperature: CONFIG.gemini.temperature,
         maxOutputTokens: CONFIG.gemini.maxTokens,
         safetySettings: [
@@ -55,7 +47,7 @@ export async function translateWithGoogle(formattedInput, customKey = null) {
       'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SWIFT_SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemInstruction }] },
       contents: [{ role: 'user', parts: [{ text: formattedInput }] }],
       generationConfig: {
         temperature: CONFIG.gemini.temperature,
